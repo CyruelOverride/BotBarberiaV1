@@ -1,0 +1,57 @@
+{
+  "saludos": {
+    "saludo_inicial": "Buenas hermano, ¿todo bien?\n¿Alguna vez te hiciste un corte en base a tu rostro?",
+    "agendar_turno": "Buenísimo bro.\nAgendamos un turno para que pruebes por primera vez un corte en base a tu rostro, te parece?",
+    "link_agenda": "Perfecto bro, te dejo el link de la agenda así elegís día y hora.\nCualquier duda escribime, estamos a las órdenes.",
+    "post_reserva": "Bro, una cosa importante: como trabajamos solo por agenda, si por algún motivo no podés venir, avisá o cancelá el turno con tiempo.\nAsí ese horario se lo podemos dar a otro cliente que también necesita ser asesorado y cortarse.\nGracias por entender hermano."
+  },
+  "precios": {
+    "cuanto_sale": "Bro, el valor depende de lo que vos quieras hacerte.\nTe paso la lista:\n• Corte + asesoramiento → $500\n• Corte + asesoramiento + barba → $600\n• Barba perfilada → $250\n• Barba afeitada → $200\n• Cejas en base a visagismo → $50",
+    "mas_barato_otros_lados": "Bro, el valor está en el asesoramiento según tu estructura facial.\nNo es un corte normal: te analizamos el rostro y te hacemos un estilo que realmente te favorece. Es una inversión en tu imagen, no un gasto."
+  },
+  "ubicacion": {
+    "donde_estan": "Estamos en Juan José de Amézaga 2241.\n(https://maps.app.goo.gl/uaJPmJrxUJr5wZE87)\nAhi te dejo la ubicación exacta."
+  },
+  "turnos": {
+    "turno_hoy": "En el link de la agenda te aparece todo lo disponible en el momento hermano.\nAhi te la paso",
+    "agendar_con_tiempo": "Sí bro, siempre trabajamos solo por agenda.\nLo ideal es reservar con tiempo para asegurarte el horario que querés.",
+    "horarios_salida_trabajo": "Hermano, los horarios disponibles están siempre actualizados en la agenda web.\nAhí vas a ver si hay turnos para hoy o para después de la hora que salís del laburo.\nSi querés que te pase el link de la agenda, avisame.",
+    "no_horarios_disponibles": "Hermano ya si queres agendate en la agenda web y despreocupas, por las dudas de que se llenen los turnos",
+    "no_veo_horarios_hoy": "Hermano, si no te aparecen horarios para hoy en la agenda es porque ya no quedan turnos disponibles para el día de hoy.\nCuando la agenda está llena, la web deja de mostrar esos horarios para que no haya confusión.\nTe recomiendo agendarte en el primer horario libre que veas, así no te quedás sin turno.\nAcá tenés el link de nuevo:"
+  },
+  "servicios": {
+    "que_incluye_corte": "Incluye:\n• Ver qué estilos te favorecen según tu estructura facial\n• Recomendación personalizada\n• Corte completo\n• Uso de productos LC\n• Styling final\nAdemás, los productos que usamos en el estudio también están a la venta.\nSi te gusta alguno, consultale al barbero.",
+    "que_es_asesoramiento": "El asesoramiento es ayudarte a encontrar el estilo que mejor va con tu estructura facial. No todos los cortes quedan bien en todas las caras.\nTe explicamos qué te favorece y en base a eso armamos el corte.",
+    "solo_barba": "Sí bro, sin problema.\nEstos son los valores:\n• Barba perfilada → $250\n• Barba afeitada → $200\nSi querés, te agendo solo barba.",
+    "hacen_tinta": "Hermano, por ahora no estamos haciendo trabajos de tinta.\nSolo estamos trabajando con corte, asesoramiento y barba.",
+    "asesoria_se_cobra_aparte": "Hermano, viene todo incluido.\nEl servicio completo de asesoría + corte tiene un valor de $500.\nTe analizamos el rostro, te recomendamos el estilo y te hacemos el corte en base a tu estructura facial."
+  },
+  "tiempo": {
+    "cuanto_demora": "El servicio dura aproximadamente 35 minutos hermano.\nIgual, eso depende de cada corte. Si el barbero ve que precisa un poco más de tiempo para dejarte bien, no se va a apurar.\nLa idea es que salgas con el mejor resultado posible, así que dedicamos el tiempo que haga falta."
+  },
+  "pago": {
+    "pago_tarjeta": "Por ahora estamos trabajando con efectivo, transferencia o Mercado Pago hermano.\nCuando reserves por la web, también vas a tener la opción de pagar todo el corte de forma anticipada si te queda más cómodo.\nY si preferís pagar en el estudio, podés hacerlo en efectivo o por transferencia en el momento."
+  },
+  "productos": {
+    "venden_productos": "Sí hermano, tenemos los mismos productos que usamos en el estudio.\nLa cera LC tiene un valor de $500 y te la podés llevar cuando vengas.\nAceptamos efectivo, transferencia o Mercado Pago."
+  },
+  "cancelaciones": {
+    "cancelar_reagendar_1": "Hermano, gracias por avisar.\nPara reagendar, tenés que cancelar tu reserva actual y agendarte nuevamente en el día y el horario que te quede cómodo.\nYa que estamos a mil, si no te agendás en estos días te vas a quedar sin turno.\nAcá te dejo el link:",
+    "cancelar_reagendar_2": "Hermano, no hay problema.\nPor favor cancelá tu reserva, así ese horario queda libre para otro cliente.\nY agendate nuevamente en el día y la hora que te quede más cómodo.\nYa que estamos a mil, si no te agendás en estos días te vas a quedar sin turno.\nAcá tenés el link:",
+    "no_pude_llegar": "Hermano, tranqui, gracias por avisar igual.\nComo ya pasó la hora del turno de hoy, ahora tenés que agendar uno nuevo para otra fecha y horario.\nAcá te dejo el link de la agenda:"
+  },
+  "situaciones": {
+    "caer_sin_agenda": "Hermano, por ahora no estamos atendiendo sin reserva.\nTrabajamos solo con agenda, así que tenés que agendar tu turno.\nA continuación te dejo el link para hacerlo:",
+    "dos_personas": "Hermano, sin problema.\nSi se quieren cortar a la misma hora, tienen que fijarse que haya disponibilidad en dos barberos distintos y agendar cada uno su turno en el mismo horario.\nSi prefieren cortarse los dos con el mismo barbero, entonces uno se agenda en un horario y el otro en el siguiente disponible.\nPor ejemplo: uno a las 15:00 y el otro a las 15:30.\nAcá les dejo el link para que lo vean y reserven:",
+    "no_manejo_web": "Hermano, la forma principal de reservar es siempre por la agenda web, así nos aseguramos que todo quede bien registrado.\nSi te complica, te puedo ir ayudando paso a paso mientras hacés la reserva por la web.\nEntrá a la agenda desde acá y cualquier duda me escribís:",
+    "no_encuentro_lugar": "Hermano, estamos en Juan José de Amézaga 2241.\nTe dejo la ubicación en Google Maps para que la veas mejor:\n(link de Google Maps)\nSi estás fuera del horario de tu reserva o muy adelantado, puede que todavía no estemos atendiendo en ese momento. Lo ideal es llegar lo más cerca posible a la hora agendada.",
+    "llegando_tarde": "Hermano, no pasa nada.\nYa le avisamos al barbero con el cual agendaste tu turno.",
+    "llegando_muy_tarde": "Hermano, cuando el atraso es tan largo es muy difícil poder atenderte bien porque tenemos otros turnos agendados detrás.\nEn este caso, lo mejor es que canceles ese turno y te agendes uno nuevo en el primer horario disponible, así podemos darte el tiempo que necesitás y no atrasamos al resto.\nAcá te dejo el link de la agenda:",
+    "politica_horarios": "Hermano, tratamos siempre de respetar los horarios porque cada turno es un espacio reservado solo para vos, y detrás de ese turno suele haber otro cliente esperando.\nPor eso trabajamos solo por agenda y pedimos que, si no podés venir, avises o canceles con tiempo.\nDe esa forma podemos mantener todo prolijo y atender bien.",
+    "no_aparen_horarios_agenda": "Hermano, si no te aparece ningún horario disponible es porque por el momento la agenda está completa para esos días.\nProbá moviendo a otros días u horarios más adelante y fijate si te deja reservar.\nSi querés, revisá la agenda de nuevo acá:"
+  },
+  "otros": {
+    "ya_me_corte": "No importa hermano ya que la idea es trabajar en un proyecto en base a tu rostro y entender cuanto antes que es lo que te queda mejor.",
+    "son_de_montevideo": "Sí, hermano, actualmente estamos solamente en Montevideo.\nCualquier cosa que necesites, acá estamos."
+  }
+}
