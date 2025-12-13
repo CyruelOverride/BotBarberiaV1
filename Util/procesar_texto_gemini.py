@@ -9,22 +9,12 @@ from Util.intents import detectar_intencion
 from Util.informacion_barberia import get_info_por_intencion
 from Util.error_handler import manejar_error
 from Util.token_optimizer import (
-    count_tokens, extract_relevant, compress_history, build_optimized_message,
+    count_tokens, extract_relevant, compress_history, build_modular_prompt,
     validate_and_compress, log_token_usage, get_optimized_config
 )
 from Util.flujo_automatico import procesar_flujo_automatico
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
-
-
-def _get_prompt_base() -> str:
-    """
-    Retorna el prompt base con tono unificado para todas las llamadas a Gemini.
-    """
-    return """Sos un asistente de barbería. Tono cercano: "bro", "hermano", "amigo".
-Respondé según la información que recibís. Sé breve y natural.
-Idioma: español. No uses formato Markdown.
-IMPORTANTE: No uses saludos genéricos como "que onda?" o "hola" a menos que sea el primer mensaje de la conversación. Si ya hay contexto, ve directo al grano."""
 
 
 def _extraer_json_robusto(texto: str) -> Optional[dict]:
@@ -179,6 +169,36 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
             respuesta_predefinida = reemplazar_links(respuesta_predefinida, link_agenda, link_maps)
         return respuesta_predefinida
     
+    # EARLY EXIT: Mensajes simples que no requieren Gemini
+    mensajes_simples = ["ok", "dale", "gracias", "perfecto", "si", "no", "listo", "genial", "bueno", "bien"]
+    texto_strip = texto_usuario.strip()
+    es_mensaje_simple = texto_strip.lower() in mensajes_simples or len(texto_strip) < 20
+    
+    if es_mensaje_simple:
+        print(f"🔄 Mensaje simple detectado ('{texto_strip}'), intentando flujo automático primero...")
+        # Si no se pasó intención, intentar detectarla
+        if not intencion and texto_usuario:
+            intencion = detectar_intencion(texto_usuario)
+        
+        # Si hay intención pero no info_relevante, obtenerla
+        if intencion and not info_relevante:
+            info_relevante = get_info_por_intencion(intencion)
+        
+        respuesta_automatica = procesar_flujo_automatico(
+            texto_usuario=texto_usuario,
+            intencion=intencion,
+            info_relevante=info_relevante
+        )
+        
+        if respuesta_automatica:
+            print(f"✅ Flujo automático exitoso para mensaje simple, evitando llamada a Gemini")
+            # Reemplazar links si se proporcionaron
+            if link_agenda or link_maps:
+                respuesta_automatica = reemplazar_links(respuesta_automatica, link_agenda, link_maps)
+            return respuesta_automatica
+        else:
+            print(f"⚠️ Flujo automático no encontró respuesta para mensaje simple, continuando con Gemini")
+    
     # SEGUNDO: Si no hay respuesta predefinida, intentar obtener info de informacion_barberia.py
     # Si no se pasó intención, intentar detectarla
     if not intencion and texto_usuario:
@@ -194,41 +214,49 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
     # FALLBACK: Si no hay respuesta predefinida, usar Gemini
     # Si hay info_relevante, incluirla; si no, usar prompt corto (solo tono)
     try:
-        # Obtener historial si está disponible
+        # Obtener historial solo si el mensaje es lo suficientemente largo (>= 20 caracteres)
         historial_comprimido = ""
-        ultimos_mensajes = []
+        ultimos_mensajes = None
         
-        if chat_service and id_chat:
+        if len(texto_strip) >= 20 and chat_service and id_chat:
             try:
-                # Obtener todos los mensajes para comprimir
+                # Obtener todos los mensajes para decidir qué usar
                 todos_mensajes = chat_service.obtener_todos_mensajes(id_chat)
                 if todos_mensajes:
-                    # Comprimir historial si hay muchos mensajes
-                    if len(todos_mensajes) > 3:
+                    # Decidir: historial_comprimido O ultimos_mensajes, no ambos
+                    if len(todos_mensajes) > 10:
+                        # Muchos mensajes: usar solo historial comprimido
                         historial_comprimido = compress_history(todos_mensajes)
-                    
-                    # Obtener últimos mensajes (máx 3 user + 3 bot)
-                    ultimos_mensajes = chat_service.obtener_ultimos_mensajes(id_chat, limite=6)
+                        ultimos_mensajes = None
+                        print(f"📚 Usando historial comprimido ({len(todos_mensajes)} mensajes totales)")
+                    else:
+                        # Pocos mensajes: usar solo últimos mensajes
+                        ultimos_mensajes = chat_service.obtener_ultimos_mensajes(id_chat, limite=6)
+                        historial_comprimido = ""
+                        print(f"📝 Usando últimos mensajes ({len(ultimos_mensajes)} mensajes)")
             except Exception as e:
                 print(f"⚠️ Error obteniendo historial: {e}")
+        else:
+            if len(texto_strip) < 20:
+                print(f"📊 Mensaje corto ({len(texto_strip)} chars), no se enviará historial")
         
         # Extraer información relevante
         texto_relevante = extract_relevant(texto_usuario)
         info_relevante_limpia = extract_relevant(info_relevante) if info_relevante else ""
         
-        # ESTIMAR TOKENS antes de construir el prompt completo
-        # Estimar basándose en los componentes que se usarán
-        texto_estimado = texto_relevante
-        info_estimada = info_relevante_limpia if info_relevante_limpia else ""
-        historial_estimado = historial_comprimido
-        mensajes_estimados = ""
-        if ultimos_mensajes:
-            for msg in ultimos_mensajes:
-                mensajes_estimados += f"{msg.get('role', '')}: {msg.get('content', '')}\n"
-        
-        # Estimar tokens del prompt completo
-        prompt_estimado = f"{texto_estimado}\n{info_estimada}\n{historial_estimado}\n{mensajes_estimados}"
-        tokens_estimados = count_tokens(prompt_estimado)
+        # ESTIMAR TOKENS usando el prompt modular que se construirá
+        # Construir prompt estimado con build_modular_prompt para estimación precisa
+        prompt_estimado = build_modular_prompt(
+            intencion=intencion,
+            texto_usuario=texto_usuario,
+            info_relevante=info_relevante,
+            historial_comprimido=historial_comprimido,
+            ultimos_mensajes=ultimos_mensajes,
+            ya_hay_contexto=ya_hay_contexto
+        )
+        tokens_estimados = count_tokens(prompt_estimado, use_api=False)  # Estimación rápida sin llamar a API
+        print(f"📊 Tokens estimados del prompt (estimación rápida): {tokens_estimados}")
+        print(f"🔍 DECISIÓN: {'Tokens > 500, intentando FLUJO AUTOMÁTICO primero' if tokens_estimados > 500 else 'Tokens <= 500, usando GEMINI directamente'}")
         
         # Si los tokens estimados > 500, intentar flujo automático primero
         if tokens_estimados > 500:
@@ -245,31 +273,29 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
                 return respuesta_automatica
             else:
                 print(f"⚠️ Flujo automático no encontró coincidencia, usando Gemini de todas formas")
-        
-        # Construir tarea según el caso
-        if es_visagismo:
-            tarea = "El cliente ya mencionó su tipo de estructura facial. DALE LA INFORMACIÓN DIRECTAMENTE. No preguntes otra vez sobre su tipo de rostro. Da la información directamente. Al final, di algo como 'te puedo hacer esto o contame si tenes una idea ya'. Sé directo y natural, sin saludos genéricos."
         else:
-            tarea = "Respondé al mensaje del cliente de forma natural y breve."
-            if ya_hay_contexto:
-                tarea += " Ya hay una conversación en curso, NO uses saludos genéricos como 'que onda?' o 'hola'. Ve directo a responder."
+            print(f"✅ Tokens estimados ({tokens_estimados}) <= 500, usando Gemini directamente")
         
-        # Construir mensaje optimizado
-        prompt = build_optimized_message(
-            tarea=tarea,
-            datos_utiles=info_relevante_limpia if info_relevante_limpia else f"Mensaje: {texto_relevante}",
+        # Construir prompt modular optimizado (reemplaza build_optimized_message)
+        prompt = build_modular_prompt(
+            intencion=intencion,
+            texto_usuario=texto_usuario,
+            info_relevante=info_relevante,
             historial_comprimido=historial_comprimido,
-            ultimos_mensajes=ultimos_mensajes if ultimos_mensajes else None
+            ultimos_mensajes=ultimos_mensajes,
+            ya_hay_contexto=ya_hay_contexto
         )
         
         # Validar y comprimir si es necesario
         prompt, input_tokens = validate_and_compress(prompt)
 
+        print(f"🤖 LLAMANDO A GEMINI para generar respuesta (input_tokens: {input_tokens})...")
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[prompt],
             config=get_optimized_config(),
         )
+        print(f"✅ Respuesta recibida de Gemini")
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
         output_tokens = count_tokens(response_text) if response_text else 0

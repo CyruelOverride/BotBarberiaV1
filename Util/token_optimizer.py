@@ -6,7 +6,7 @@ Mantiene funcionalidad igual pero optimiza el uso de tokens.
 import os
 import re
 import json
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from google import genai
 from google.genai import types
 
@@ -29,13 +29,14 @@ def _get_client():
     return _client
 
 
-def count_tokens(text: str, model: str = "gemini-2.5-flash") -> int:
+def count_tokens(text: str, model: str = "gemini-2.5-flash", use_api: bool = True) -> int:
     """
-    Cuenta tokens en un texto usando la API de Gemini.
+    Cuenta tokens en un texto. Por defecto usa la API de Gemini, pero puede usar estimación.
     
     Args:
         text: Texto a contar
         model: Modelo a usar (default: gemini-2.5-flash)
+        use_api: Si True, usa API de Gemini. Si False, usa estimación rápida.
         
     Returns:
         Número de tokens estimados
@@ -43,13 +44,18 @@ def count_tokens(text: str, model: str = "gemini-2.5-flash") -> int:
     if not text:
         return 0
     
+    # Para estimaciones rápidas (como validación previa), usar estimación sin API
+    if not use_api:
+        # Estimación aproximada (1 token ≈ 4 caracteres en español)
+        return len(text) // 4
+    
     try:
         client = _get_client()
         if not client:
             # Fallback: estimación aproximada (1 token ≈ 4 caracteres en español)
             return len(text) // 4
         
-        # Usar count_tokens de Gemini
+        # Usar count_tokens de Gemini (esto NO genera contenido, solo cuenta)
         result = client.models.count_tokens(model=model, contents=[text])
         if hasattr(result, 'total_tokens'):
             return result.total_tokens
@@ -177,6 +183,128 @@ def compress_history(history: List[Dict[str, str]], max_tokens: int = 300) -> st
     return resumen
 
 
+def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
+    """
+    Retorna un prompt corto y específico según la intención detectada.
+    Solo incluye lo esencial, sin estructura rígida.
+    
+    Args:
+        intencion: Intención detectada (ej: "visagismo_redondo", "turnos", "precios")
+        ya_hay_contexto: Si ya hay contexto de conversación
+        
+    Returns:
+        Prompt específico y corto
+    """
+    if not intencion:
+        if ya_hay_contexto:
+            return "Responde breve y natural. No uses saludos."
+        return "Responde breve y natural."
+    
+    intencion_lower = intencion.lower()
+    
+    # Visagismo
+    if intencion_lower.startswith("visagismo_"):
+        tipo_rostro = intencion.replace("visagismo_", "").replace("_", " ")
+        return f"Cliente mencionó {tipo_rostro}. Da info directa. No preguntes de nuevo. Al final di 'te puedo hacer esto o contame si tenes una idea ya'."
+    
+    # Turnos
+    if intencion_lower == "turnos":
+        return "Cliente pregunta por turnos. Responde breve con link de agenda."
+    
+    # Precios
+    if intencion_lower == "precios":
+        return "Cliente pregunta precios. Responde con lista breve."
+    
+    # Ubicación
+    if intencion_lower == "ubicacion":
+        return "Cliente pregunta ubicación. Responde breve con dirección."
+    
+    # Barba
+    if intencion_lower == "barba":
+        return "Cliente pregunta por barba. Responde breve confirmando que sí se hace."
+    
+    # Productos
+    if intencion_lower == "productos_lc":
+        return "Cliente pregunta por productos. Responde breve con info y precio."
+    
+    # Diferencial
+    if intencion_lower == "diferencial":
+        return "Cliente pregunta diferencial. Responde breve destacando visagismo y turnos."
+    
+    # Cortes
+    if intencion_lower == "cortes":
+        return "Cliente pregunta por cortes. Responde breve sobre visagismo."
+    
+    # Default: prompt genérico corto
+    if ya_hay_contexto:
+        return f"Responde sobre {intencion}. Breve y natural. No saludos."
+    return f"Responde sobre {intencion}. Breve y natural."
+
+
+def build_modular_prompt(
+    intencion: str = "",
+    texto_usuario: str = "",
+    info_relevante: str = "",
+    historial_comprimido: str = "",
+    ultimos_mensajes: List[Dict[str, Any]] = None,
+    ya_hay_contexto: bool = False
+) -> str:
+    """
+    Construye un prompt modular y optimizado según la intención.
+    Solo agrega las secciones necesarias, evitando estructura rígida.
+    
+    Args:
+        intencion: Intención detectada
+        texto_usuario: Mensaje del usuario
+        info_relevante: Información relevante extraída
+        historial_comprimido: Historial comprimido (opcional)
+        ultimos_mensajes: Últimos mensajes (opcional)
+        ya_hay_contexto: Si ya hay contexto de conversación
+        
+    Returns:
+        Prompt optimizado y corto
+    """
+    parts = []
+    
+    # 1. Prompt específico según intención (más corto que tarea genérica)
+    prompt_especifico = _get_prompt_especifico(intencion, ya_hay_contexto)
+    parts.append(prompt_especifico)
+    
+    # 2. Mensaje del usuario (siempre presente, pero extraído)
+    if texto_usuario:
+        texto_limpio = extract_relevant(texto_usuario)
+        if texto_limpio:
+            parts.append(f"Usuario: {texto_limpio}")
+    
+    # 3. Info relevante (solo si existe y es necesaria)
+    if info_relevante:
+        info_limpia = extract_relevant(info_relevante)
+        if info_limpia and len(info_limpia) > 20:  # Solo si tiene contenido sustancial
+            # Truncar info relevante si es muy larga (máx 200 chars)
+            if len(info_limpia) > 200:
+                info_limpia = info_limpia[:200] + "..."
+            parts.append(f"Info: {info_limpia}")
+    
+    # 4. Historial (solo uno: comprimido O últimos mensajes, nunca ambos)
+    if historial_comprimido:
+        # Truncar historial si es muy largo (máx 150 chars)
+        if len(historial_comprimido) > 150:
+            historial_comprimido = historial_comprimido[:150] + "..."
+        parts.append(f"Contexto: {historial_comprimido}")
+    elif ultimos_mensajes:
+        # Solo últimos 2-3 mensajes para mantenerlo corto
+        mensajes_cortos = []
+        for msg in ultimos_mensajes[-4:]:  # Máximo 4 mensajes (2 user + 2 bot)
+            role = "U" if msg.get("es_cliente") else "B"
+            content = msg.get("contenido", "")[:100]  # Truncar cada mensaje a 100 chars
+            mensajes_cortos.append(f"{role}: {content}")
+        if mensajes_cortos:
+            parts.append("Contexto: " + " | ".join(mensajes_cortos))
+    
+    # Unir con saltos de línea simples (sin etiquetas rígidas)
+    return "\n".join(parts)
+
+
 def build_optimized_message(
     tarea: str,
     datos_utiles: str = "",
@@ -186,6 +314,7 @@ def build_optimized_message(
 ) -> str:
     """
     Construye un mensaje optimizado con estructura específica para reducir tokens.
+    DEPRECATED: Usar build_modular_prompt() en su lugar.
     
     Args:
         tarea: Instrucción principal
@@ -259,7 +388,8 @@ def validate_and_compress(
     # Aplicar compresión simple: truncar líneas largas
     compressed_lines = []
     for line in lines:
-        if count_tokens(line) > 50:  # Si la línea es muy larga
+        # Usar estimación simple en lugar de count_tokens para evitar múltiples llamadas
+        if len(line) > 200:  # Si la línea es muy larga (estimación)
             # Truncar a ~70% de su longitud
             new_length = int(len(line) * compression_factor * 0.7)
             compressed_lines.append(line[:new_length] + "...")

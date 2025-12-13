@@ -26,40 +26,59 @@ def procesar_flujo_automatico(
     Returns:
         Respuesta si encuentra coincidencia, None si no encuentra nada
     """
+    print("🔄 FLUJO AUTOMÁTICO: Iniciando procesamiento...")
+    
     if not texto_usuario:
+        print("⚠️ FLUJO AUTOMÁTICO: Texto vacío, retornando None")
         return None
     
     texto_lower = texto_usuario.lower().strip()
+    print(f"🔄 FLUJO AUTOMÁTICO: Procesando mensaje: '{texto_usuario[:50]}...'")
     
     # PRIORIDAD 1: Intentar detectar respuesta predefinida (más específico)
+    print("🔄 FLUJO AUTOMÁTICO: Intentando detectar respuesta predefinida...")
     resultado_respuesta = detectar_intencion_respuesta(texto_usuario)
     
     if resultado_respuesta:
         intencion_detectada, clave = resultado_respuesta
         respuesta = get_response(intencion_detectada, clave)
         if respuesta:
-            print(f"✅ Flujo automático: Respuesta predefinida encontrada ({intencion_detectada}.{clave})")
+            print(f"✅ FLUJO AUTOMÁTICO: Respuesta predefinida encontrada ({intencion_detectada}.{clave})")
             return respuesta
+        else:
+            print(f"⚠️ FLUJO AUTOMÁTICO: Intención detectada pero sin respuesta ({intencion_detectada}.{clave})")
+    else:
+        print("⚠️ FLUJO AUTOMÁTICO: No se encontró respuesta predefinida")
     
     # PRIORIDAD 2: Si no hay respuesta predefinida, intentar detectar intención general
     if not intencion:
+        print("🔄 FLUJO AUTOMÁTICO: Intentando detectar intención general...")
         intencion = detectar_intencion(texto_usuario)
     
     if intencion:
+        print(f"🔄 FLUJO AUTOMÁTICO: Intención detectada: '{intencion}'")
         # Si hay intención pero no info_relevante, obtenerla
         if not info_relevante:
+            print(f"🔄 FLUJO AUTOMÁTICO: Obteniendo información para intención '{intencion}'...")
             info_relevante = get_info_por_intencion(intencion)
         
         # Si hay información relevante, construir respuesta breve
         if info_relevante:
+            print(f"🔄 FLUJO AUTOMÁTICO: Construyendo respuesta para intención '{intencion}'...")
             # Construir respuesta basada en la intención detectada
             respuesta = _construir_respuesta_por_intencion(intencion, info_relevante, texto_usuario)
             if respuesta:
-                print(f"✅ Flujo automático: Respuesta construida para intención '{intencion}'")
+                print(f"✅ FLUJO AUTOMÁTICO: Respuesta construida exitosamente para intención '{intencion}'")
                 return respuesta
+            else:
+                print(f"⚠️ FLUJO AUTOMÁTICO: No se pudo construir respuesta para intención '{intencion}'")
+        else:
+            print(f"⚠️ FLUJO AUTOMÁTICO: No hay información relevante para intención '{intencion}'")
+    else:
+        print("⚠️ FLUJO AUTOMÁTICO: No se detectó ninguna intención")
     
     # Si no encuentra nada, retornar None para que se use Gemini
-    print("⚠️ Flujo automático: No se encontró coincidencia, se usará Gemini")
+    print("❌ FLUJO AUTOMÁTICO: No se encontró coincidencia, se usará Gemini")
     return None
 
 
