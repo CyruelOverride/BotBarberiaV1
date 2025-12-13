@@ -12,7 +12,8 @@ from Util.calificacion_util import manejar_calificacion
 from Util.procesar_texto_gemini import detectar_consulta_reserva, generar_respuesta_barberia
 from Util.intents import detectar_intencion
 from Util.informacion_barberia import get_info_por_intencion, LINK_RESERVA, NUMERO_DERIVACION
-from Util.respuestas_barberia import get_respuesta_predefinida, reemplazar_links
+from Util.respuestas_barberia import get_respuesta_predefinida, reemplazar_links, get_response, detectar_intencion_respuesta
+from Util.token_optimizer import count_tokens, build_modular_prompt, compress_history
 from Util.error_handler import manejar_error, registrar_mensaje
 
 
@@ -115,22 +116,31 @@ class Chat:
         """
         texto_lower = texto.lower().strip()
         
+        # Limpiar signos de puntuación para mejor detección
+        texto_limpio = re.sub(r'[.,;:!?¿¡]', '', texto_lower)
+        
         # Palabras y frases de saludo
         saludos = [
-            "hola", "holi", "holis", "hola!", "holi!", "holis!",
+            "hola", "holi", "holis",
             "buenas", "buenos días", "buenos dias", "buen día", "buen dia",
             "buenas tardes", "buenas noches",
             "que tal", "qué tal", "que onda", "qué onda",
-            "como estas", "cómo estás", "como estas?", "cómo estás?",
-            "todo bien", "todo bien?", "qué hay", "que hay"
+            "como estas", "cómo estás",
+            "todo bien", "qué hay", "que hay"
         ]
         
-        # Verificar si el texto es principalmente un saludo
+        # Verificar si el texto contiene saludos
         for saludo in saludos:
-            if saludo in texto_lower:
+            # Buscar el saludo en el texto limpio (sin puntuación)
+            if saludo in texto_limpio:
                 # Si el texto es muy corto o es principalmente el saludo, es un saludo
-                if len(texto_lower) <= len(saludo) + 5 or texto_lower.startswith(saludo):
+                # También verificar si empieza con el saludo (con o sin puntuación)
+                if len(texto_limpio) <= len(saludo) + 10 or texto_limpio.startswith(saludo):
                     return True
+        
+        # Caso especial: "buenas" seguido de "todo bien" (con o sin coma)
+        if "buenas" in texto_limpio and "todo bien" in texto_limpio:
+            return True
         
         return False
     
@@ -161,26 +171,26 @@ class Chat:
 
     def funcion_ayuda(self, numero, texto):
         ayuda_texto = (
-            "¡Hola hermano! 👋\n\n"
+            "¡Hola hermano!\n\n"
             "Soy el asistente de la barbería. Te puedo ayudar con:\n\n"
-            "💈 *Turnos y reservas*\n"
+            "*Turnos y reservas*\n"
             "• Agendar tu turno\n"
             "• Consultar disponibilidad\n"
             "• Cancelar o reagendar\n\n"
-            "✂️ *Info sobre cortes*\n"
+            "*Info sobre cortes*\n"
             "• Qué incluye el servicio\n"
             "• Precios\n"
             "• Visagismo (qué corte te queda según tu tipo de rostro)\n"
             "• Servicios de barba\n\n"
-            "🛍️ *Productos LC*\n"
+            "*Productos LC*\n"
             "• Info sobre productos exclusivos\n"
             "• Precios y disponibilidad\n\n"
-            "❓ *Preguntas frecuentes*\n"
+            "*Preguntas frecuentes*\n"
             "• Diferencial del servicio\n"
             "• Ubicación\n"
             "• Formas de pago\n"
             "• Horarios\n\n"
-            "Escribime lo que necesites, bro. Estoy acá para ayudarte. 😊"
+            "Escribime lo que necesites, bro. Estoy acá para ayudarte."
         )
         return enviar_mensaje_whatsapp(numero, ayuda_texto)
 
@@ -239,7 +249,7 @@ class Chat:
         # Si es un saludo y aún no se saludó, responder con saludo inicial
         if self.es_saludo(texto_strip) and not self.ya_se_saludo(numero):
             self.marcar_saludo(numero)
-            saludo_inicial = get_respuesta_predefinida("hola")
+            saludo_inicial = get_response("saludos", "saludo_inicial")
             if saludo_inicial:
                 if self.id_chat:
                     self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
@@ -256,7 +266,7 @@ class Chat:
         if intencion_critica == "derivar_humano":
             mensaje_derivacion = (
                 "Te voy a derivar con un asistente humano que te va a poder ayudar mejor. "
-                "En breve te contactará alguien de nuestro equipo. 😊"
+                "En breve te contactará alguien de nuestro equipo."
             )
             if self.id_chat:
                 self.chat_service.registrar_mensaje(self.id_chat, mensaje_derivacion, es_cliente=False)
@@ -264,17 +274,21 @@ class Chat:
             return {"success": True}
 
         # ============================================
-        # PRIORIDAD 2: GEMINI INTERPRETANDO LIBREMENTE
+        # PRIORIDAD 2: ESTIMAR TOKENS Y DECIDIR FLUJO
         # ============================================
-        # Intentar respuesta predefinida (ahora con Gemini para coincidencias flexibles)
+        # Solo usar respuestas predefinidas con keywords directos (sin Gemini)
         respuesta_predefinida = None
         try:
-            respuesta_predefinida = get_respuesta_predefinida(texto_strip)
+            # Solo buscar con keywords directos, sin usar Gemini
+            resultado_keywords = detectar_intencion_respuesta(texto_strip)
+            if resultado_keywords:
+                intencion_kw, clave_kw = resultado_keywords
+                respuesta_predefinida = get_response(intencion_kw, clave_kw)
         except Exception as e:
             print(f"⚠️ Error en sistema de respuestas predefinidas: {e}")
             manejar_error(e, texto_strip, numero)
         
-        # Si hay respuesta predefinida, usarla y reemplazar links
+        # Si hay respuesta predefinida con keywords directos, usarla (10% de los casos)
         if respuesta_predefinida:
             link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
             link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
@@ -283,47 +297,101 @@ class Chat:
             # Si es sobre turnos/agenda y no tiene link, agregarlo
             if ("turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower) and link_reserva:
                 if link_reserva not in respuesta_final:
-                    respuesta_final += f"\n\n🔗 {link_reserva}"
+                    respuesta_final += f"\n\n{link_reserva}"
             
             if self.id_chat:
                 self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
             return enviar_mensaje_whatsapp(numero, respuesta_final)
         
-        # Si no hay respuesta predefinida, usar Gemini para generar respuesta libre
+        # Preparar datos para estimar tokens
+        info_relevante = ""
+        if intencion_critica:
+            info_relevante = get_info_por_intencion(intencion_critica)
+        
+        ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
+        
+        # Obtener historial si aplica
+        historial_comprimido = ""
+        ultimos_mensajes = None
+        if len(texto_strip) >= 20 and self.chat_service and self.id_chat:
+            try:
+                todos_mensajes = self.chat_service.obtener_todos_mensajes(self.id_chat)
+                if todos_mensajes:
+                    if len(todos_mensajes) > 10:
+                        historial_comprimido = compress_history(todos_mensajes)
+                    else:
+                        ultimos_mensajes = self.chat_service.obtener_ultimos_mensajes(self.id_chat, limite=6)
+            except Exception as e:
+                print(f"⚠️ Error obteniendo historial: {e}")
+        
+        # Estimar tokens del prompt que se construiría
+        prompt_estimado = build_modular_prompt(
+            intencion=intencion_critica if intencion_critica else "",
+            texto_usuario=texto_strip,
+            info_relevante=info_relevante,
+            historial_comprimido=historial_comprimido,
+            ultimos_mensajes=ultimos_mensajes,
+            ya_hay_contexto=ya_hay_contexto
+        )
+        tokens_estimados = count_tokens(prompt_estimado, use_api=False)
+        print(f"📊 Tokens estimados: {tokens_estimados}")
+        
+        # ============================================
+        # PRIORIDAD 3: GEMINI (90% de los casos si tokens <= 500)
+        # ============================================
         try:
-            # Obtener información relevante si hay intención detectada
-            info_relevante = ""
-            if intencion_critica:
-                info_relevante = get_info_por_intencion(intencion_critica)
-            
-            # Obtener links
             link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
             link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
             
-            # Verificar si ya hay contexto de conversación
-            ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
+            # Si tokens <= 500, usar Gemini directamente (90% de los casos)
+            if tokens_estimados <= 500:
+                print(f"✅ Tokens <= 500, usando Gemini directamente")
+                respuesta = generar_respuesta_barberia(
+                    intencion_critica if intencion_critica else "", 
+                    texto_strip, 
+                    info_relevante,
+                    link_reserva,
+                    link_maps,
+                    ya_hay_contexto,
+                    self.chat_service,
+                    self.id_chat,
+                    respuesta_predefinida=None
+                )
+            else:
+                # Si tokens > 500, intentar flujo automático primero
+                print(f"⚠️ Tokens > 500, intentando flujo automático primero...")
+                from Util.flujo_automatico import procesar_flujo_automatico
+                respuesta_automatica = procesar_flujo_automatico(
+                    texto_usuario=texto_strip,
+                    intencion=intencion_critica if intencion_critica else "",
+                    info_relevante=info_relevante
+                )
+                
+                if respuesta_automatica:
+                    print(f"✅ Flujo automático exitoso, evitando Gemini")
+                    respuesta = respuesta_automatica
+                else:
+                    # Si no encuentra nada, usar Gemini de todas formas
+                    print(f"⚠️ Flujo automático no encontró respuesta, usando Gemini")
+                    respuesta = generar_respuesta_barberia(
+                        intencion_critica if intencion_critica else "", 
+                        texto_strip, 
+                        info_relevante,
+                        link_reserva,
+                        link_maps,
+                        ya_hay_contexto,
+                        self.chat_service,
+                        self.id_chat,
+                        respuesta_predefinida=None
+                    )
             
-            # Generar respuesta con Gemini (tono cercano, variado, natural)
-            # Pasar respuesta_predefinida=None porque ya se verificó antes, evitando doble llamada a Gemini
-            respuesta = generar_respuesta_barberia(
-                intencion_critica if intencion_critica else "", 
-                texto_strip, 
-                info_relevante,
-                link_reserva,
-                link_maps,
-                ya_hay_contexto,
-                self.chat_service,
-                self.id_chat,
-                respuesta_predefinida=None  # Ya se verificó antes, evitar doble llamada
-            )
-            
-            # PRIORIDAD 3: Reemplazar links en la respuesta final (porque Gemini nunca debe inventarlos)
+            # Reemplazar links en la respuesta final
             respuesta_final = reemplazar_links(respuesta, link_reserva, link_maps)
             
             # Si es sobre turnos/agenda y no tiene link, agregarlo
             if ("turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower) and link_reserva:
                 if link_reserva not in respuesta_final:
-                    respuesta_final += f"\n\n🔗 {link_reserva}"
+                    respuesta_final += f"\n\n{link_reserva}"
             
             if self.id_chat:
                 self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
@@ -348,7 +416,7 @@ class Chat:
             # Si ya hay contexto, no usar saludo genérico
             mensaje_default = "Escribime lo que necesites o escribí *ayuda* para ver las opciones."
         else:
-            mensaje_default = "¡Bro! ¿Todo bien? 👋\n\nEscribime lo que necesites o escribí *ayuda* para ver las opciones."
+            mensaje_default = "¡Bro! ¿Todo bien?\n\nEscribime lo que necesites o escribí *ayuda* para ver las opciones."
         
         if self.id_chat:
             self.chat_service.registrar_mensaje(self.id_chat, mensaje_default, es_cliente=False)

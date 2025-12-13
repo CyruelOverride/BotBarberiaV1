@@ -169,37 +169,6 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
             respuesta_predefinida = reemplazar_links(respuesta_predefinida, link_agenda, link_maps)
         return respuesta_predefinida
     
-    # EARLY EXIT: Mensajes simples que no requieren Gemini
-    mensajes_simples = ["ok", "dale", "gracias", "perfecto", "si", "no", "listo", "genial", "bueno", "bien"]
-    texto_strip = texto_usuario.strip()
-    es_mensaje_simple = texto_strip.lower() in mensajes_simples or len(texto_strip) < 20
-    
-    if es_mensaje_simple:
-        print(f"🔄 Mensaje simple detectado ('{texto_strip}'), intentando flujo automático primero...")
-        # Si no se pasó intención, intentar detectarla
-        if not intencion and texto_usuario:
-            intencion = detectar_intencion(texto_usuario)
-        
-        # Si hay intención pero no info_relevante, obtenerla
-        if intencion and not info_relevante:
-            info_relevante = get_info_por_intencion(intencion)
-        
-        respuesta_automatica = procesar_flujo_automatico(
-            texto_usuario=texto_usuario,
-            intencion=intencion,
-            info_relevante=info_relevante
-        )
-        
-        if respuesta_automatica:
-            print(f"✅ Flujo automático exitoso para mensaje simple, evitando llamada a Gemini")
-            # Reemplazar links si se proporcionaron
-            if link_agenda or link_maps:
-                respuesta_automatica = reemplazar_links(respuesta_automatica, link_agenda, link_maps)
-            return respuesta_automatica
-        else:
-            print(f"⚠️ Flujo automático no encontró respuesta para mensaje simple, continuando con Gemini")
-    
-    # SEGUNDO: Si no hay respuesta predefinida, intentar obtener info de informacion_barberia.py
     # Si no se pasó intención, intentar detectarla
     if not intencion and texto_usuario:
         intencion = detectar_intencion(texto_usuario)
@@ -208,12 +177,10 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
     if intencion and not info_relevante:
         info_relevante = get_info_por_intencion(intencion)
     
-    # Detectar si es una intención de visagismo
-    es_visagismo = intencion and intencion.startswith("visagismo_")
-    
-    # FALLBACK: Si no hay respuesta predefinida, usar Gemini
-    # Si hay info_relevante, incluirla; si no, usar prompt corto (solo tono)
+    # Usar Gemini directamente (la decisión de tokens ya se hizo en chat.py)
     try:
+        texto_strip = texto_usuario.strip()
+        
         # Obtener historial solo si el mensaje es lo suficientemente largo (>= 20 caracteres)
         historial_comprimido = ""
         ultimos_mensajes = None
@@ -236,47 +203,8 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
                         print(f"📝 Usando últimos mensajes ({len(ultimos_mensajes)} mensajes)")
             except Exception as e:
                 print(f"⚠️ Error obteniendo historial: {e}")
-        else:
-            if len(texto_strip) < 20:
-                print(f"📊 Mensaje corto ({len(texto_strip)} chars), no se enviará historial")
         
-        # Extraer información relevante
-        texto_relevante = extract_relevant(texto_usuario)
-        info_relevante_limpia = extract_relevant(info_relevante) if info_relevante else ""
-        
-        # ESTIMAR TOKENS usando el prompt modular que se construirá
-        # Construir prompt estimado con build_modular_prompt para estimación precisa
-        prompt_estimado = build_modular_prompt(
-            intencion=intencion,
-            texto_usuario=texto_usuario,
-            info_relevante=info_relevante,
-            historial_comprimido=historial_comprimido,
-            ultimos_mensajes=ultimos_mensajes,
-            ya_hay_contexto=ya_hay_contexto
-        )
-        tokens_estimados = count_tokens(prompt_estimado, use_api=False)  # Estimación rápida sin llamar a API
-        print(f"📊 Tokens estimados del prompt (estimación rápida): {tokens_estimados}")
-        print(f"🔍 DECISIÓN: {'Tokens > 500, intentando FLUJO AUTOMÁTICO primero' if tokens_estimados > 500 else 'Tokens <= 500, usando GEMINI directamente'}")
-        
-        # Si los tokens estimados > 500, intentar flujo automático primero
-        if tokens_estimados > 500:
-            print(f"⚠️ Tokens estimados ({tokens_estimados}) > 500, intentando flujo automático primero...")
-            respuesta_automatica = procesar_flujo_automatico(
-                texto_usuario=texto_usuario,
-                intencion=intencion,
-                info_relevante=info_relevante
-            )
-            
-            if respuesta_automatica:
-                # Si el flujo automático encontró respuesta, usarla
-                print(f"✅ Flujo automático exitoso, evitando llamada a Gemini ({tokens_estimados} tokens ahorrados)")
-                return respuesta_automatica
-            else:
-                print(f"⚠️ Flujo automático no encontró coincidencia, usando Gemini de todas formas")
-        else:
-            print(f"✅ Tokens estimados ({tokens_estimados}) <= 500, usando Gemini directamente")
-        
-        # Construir prompt modular optimizado (reemplaza build_optimized_message)
+        # Construir prompt modular optimizado
         prompt = build_modular_prompt(
             intencion=intencion,
             texto_usuario=texto_usuario,

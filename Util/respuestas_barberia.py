@@ -254,13 +254,14 @@ Solo JSON, sin explicaciones."""
         return None
 
 
-def get_respuesta_predefinida(texto: str) -> Optional[str]:
+def get_respuesta_predefinida(texto: str, usar_gemini: bool = False) -> Optional[str]:
     """
     Función principal que intenta encontrar una respuesta predefinida.
-    Primero intenta con keywords, luego con Gemini para coincidencias flexibles.
+    Por defecto solo usa keywords directos. Opcionalmente puede usar Gemini.
     
     Args:
         texto: Mensaje del usuario
+        usar_gemini: Si True, usa Gemini para coincidencias flexibles. Si False, solo keywords directos.
         
     Returns:
         Texto de respuesta predefinida o None si no se encuentra
@@ -272,12 +273,13 @@ def get_respuesta_predefinida(texto: str) -> Optional[str]:
         intencion, clave = resultado
         return get_response(intencion, clave)
     
-    # SEGUNDO: Si no hay match con keywords, usar Gemini para coincidencias flexibles
-    resultado_gemini = detectar_clave_con_gemini(texto)
-    
-    if resultado_gemini:
-        intencion, clave = resultado_gemini
-        return get_response(intencion, clave)
+    # SEGUNDO: Si no hay match con keywords y se permite, usar Gemini para coincidencias flexibles
+    if usar_gemini:
+        resultado_gemini = detectar_clave_con_gemini(texto)
+        
+        if resultado_gemini:
+            intencion, clave = resultado_gemini
+            return get_response(intencion, clave)
     
     return None
 
