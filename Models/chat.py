@@ -304,6 +304,7 @@ class Chat:
             ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
             
             # Generar respuesta con Gemini (tono cercano, variado, natural)
+            # Pasar respuesta_predefinida=None porque ya se verificó antes, evitando doble llamada a Gemini
             respuesta = generar_respuesta_barberia(
                 intencion_critica if intencion_critica else "", 
                 texto_strip, 
@@ -312,7 +313,8 @@ class Chat:
                 link_maps,
                 ya_hay_contexto,
                 self.chat_service,
-                self.id_chat
+                self.id_chat,
+                respuesta_predefinida=None  # Ya se verificó antes, evitar doble llamada
             )
             
             # PRIORIDAD 3: Reemplazar links en la respuesta final (porque Gemini nunca debe inventarlos)

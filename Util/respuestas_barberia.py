@@ -217,9 +217,6 @@ Solo JSON, sin explicaciones."""
         
         # Validar y comprimir si es necesario
         prompt, input_tokens = validate_and_compress(prompt)
-        
-        # Contar tokens antes de enviar
-        log_token_usage("detectar_clave_con_gemini", input_tokens, 0)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -229,9 +226,9 @@ Solo JSON, sin explicaciones."""
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
         output_tokens = count_tokens(response_text) if response_text else 0
-        log_token_usage("detectar_clave_con_gemini", input_tokens, output_tokens)
         
-        response_text = response.text if hasattr(response, 'text') and response.text else ""
+        # Log tokens una sola vez después de obtener la respuesta
+        log_token_usage("detectar_clave_con_gemini", input_tokens, output_tokens)
         
         if not response_text:
             return None

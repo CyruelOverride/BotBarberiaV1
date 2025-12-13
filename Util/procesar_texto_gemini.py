@@ -12,6 +12,7 @@ from Util.token_optimizer import (
     count_tokens, extract_relevant, compress_history, build_optimized_message,
     validate_and_compress, log_token_usage, get_optimized_config
 )
+from Util.flujo_automatico import procesar_flujo_automatico
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -116,9 +117,6 @@ Solo JSON, sin explicaciones."""
         
         # Validar y comprimir si es necesario
         prompt, input_tokens = validate_and_compress(prompt)
-        
-        # Contar tokens antes de enviar
-        log_token_usage("detectar_consulta_reserva", input_tokens, 0)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -128,6 +126,8 @@ Solo JSON, sin explicaciones."""
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
         output_tokens = count_tokens(response_text) if response_text else 0
+        
+        # Log tokens una sola vez después de obtener la respuesta
         log_token_usage("detectar_consulta_reserva", input_tokens, output_tokens)
         
         if not response_text:
@@ -153,10 +153,9 @@ Solo JSON, sin explicaciones."""
         return {"es_consulta_reserva": False, "respuesta_acorde": "", "error": True}
 
 
-def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", info_relevante: str = "", link_agenda: str = "", link_maps: str = "", ya_hay_contexto: bool = False, chat_service=None, id_chat: str = None) -> str:
+def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", info_relevante: str = "", link_agenda: str = "", link_maps: str = "", ya_hay_contexto: bool = False, chat_service=None, id_chat: str = None, respuesta_predefinida: str = None) -> str:
     """
-    Genera una respuesta conversacional. Primero intenta usar respuestas predefinidas,
-    luego usa información de informacion_barberia.py si está disponible,
+    Genera una respuesta conversacional. Usa información de informacion_barberia.py si está disponible,
     y solo usa Gemini como último fallback.
     
     Args:
@@ -165,13 +164,15 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         info_relevante: Bloque de información relevante según la intención (opcional)
         link_agenda: Link de la agenda para reemplazar en respuestas (opcional)
         link_maps: Link de Google Maps para reemplazar en respuestas (opcional)
+        ya_hay_contexto: Si ya hay contexto de conversación
+        chat_service: Servicio de chat para obtener historial
+        id_chat: ID del chat para obtener historial
+        respuesta_predefinida: Respuesta predefinida ya obtenida (para evitar doble llamada)
         
     Returns:
         String con la respuesta (predefinida o generada por Gemini)
     """
-    # PRIMERO: Intentar obtener respuesta predefinida
-    respuesta_predefinida = get_respuesta_predefinida(texto_usuario)
-    
+    # Si ya se pasó una respuesta predefinida, usarla directamente
     if respuesta_predefinida:
         # Reemplazar links si se proporcionaron
         if link_agenda or link_maps:
@@ -215,6 +216,36 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         texto_relevante = extract_relevant(texto_usuario)
         info_relevante_limpia = extract_relevant(info_relevante) if info_relevante else ""
         
+        # ESTIMAR TOKENS antes de construir el prompt completo
+        # Estimar basándose en los componentes que se usarán
+        texto_estimado = texto_relevante
+        info_estimada = info_relevante_limpia if info_relevante_limpia else ""
+        historial_estimado = historial_comprimido
+        mensajes_estimados = ""
+        if ultimos_mensajes:
+            for msg in ultimos_mensajes:
+                mensajes_estimados += f"{msg.get('role', '')}: {msg.get('content', '')}\n"
+        
+        # Estimar tokens del prompt completo
+        prompt_estimado = f"{texto_estimado}\n{info_estimada}\n{historial_estimado}\n{mensajes_estimados}"
+        tokens_estimados = count_tokens(prompt_estimado)
+        
+        # Si los tokens estimados > 500, intentar flujo automático primero
+        if tokens_estimados > 500:
+            print(f"⚠️ Tokens estimados ({tokens_estimados}) > 500, intentando flujo automático primero...")
+            respuesta_automatica = procesar_flujo_automatico(
+                texto_usuario=texto_usuario,
+                intencion=intencion,
+                info_relevante=info_relevante
+            )
+            
+            if respuesta_automatica:
+                # Si el flujo automático encontró respuesta, usarla
+                print(f"✅ Flujo automático exitoso, evitando llamada a Gemini ({tokens_estimados} tokens ahorrados)")
+                return respuesta_automatica
+            else:
+                print(f"⚠️ Flujo automático no encontró coincidencia, usando Gemini de todas formas")
+        
         # Construir tarea según el caso
         if es_visagismo:
             tarea = "El cliente ya mencionó su tipo de estructura facial. DALE LA INFORMACIÓN DIRECTAMENTE. No preguntes otra vez sobre su tipo de rostro. Da la información directamente. Al final, di algo como 'te puedo hacer esto o contame si tenes una idea ya'. Sé directo y natural, sin saludos genéricos."
@@ -233,9 +264,6 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         
         # Validar y comprimir si es necesario
         prompt, input_tokens = validate_and_compress(prompt)
-        
-        # Contar tokens antes de enviar
-        log_token_usage("generar_respuesta_barberia", input_tokens, 0)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
@@ -245,6 +273,8 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
         output_tokens = count_tokens(response_text) if response_text else 0
+        
+        # Log tokens una sola vez después de obtener la respuesta
         log_token_usage("generar_respuesta_barberia", input_tokens, output_tokens)
         
         if not response_text:

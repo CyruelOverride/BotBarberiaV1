@@ -26,7 +26,6 @@ def get_transcription(binary_audio: bytes) -> str:
                 # Contar tokens del prompt (solo texto, el archivo no se cuenta aquí)
                 prompt_text = "Transcribe this audio file"
                 input_tokens = count_tokens(prompt_text)
-                log_token_usage("get_transcription", input_tokens, 0)
 
                 response = client.models.generate_content(
                     model="gemini-2.5-flash", 
@@ -36,6 +35,8 @@ def get_transcription(binary_audio: bytes) -> str:
                 
                 texto = response.text
                 output_tokens = count_tokens(texto) if texto else 0
+                
+                # Log tokens una sola vez después de obtener la respuesta
                 log_token_usage("get_transcription", input_tokens, output_tokens)
                 
                 print(f"✅ Transcripción exitosa: {texto[:50]}...")
