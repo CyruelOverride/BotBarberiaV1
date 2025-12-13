@@ -125,7 +125,7 @@ def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
     Returns:
         String con instrucciones de tono
     """
-    base = "Responde con conversación cálida, como si estuvieses hablando con un amigo. No hables como robot ni como empresa, sé natural y humano. Usa 'Hermano', 'Bro' o 'Amigo' máximo 1 vez por mensaje, solo cuando sea natural. Usa frases claras como 'Te paso info', 'Miro mi agenda y te confirmo', 'Te anoto'. Sé conversacional, directo y amigable. Ir al grano, no dar vueltas. Completo pero conciso."
+    base = "Responde con conversación cálida, como si estuvieses hablando con un amigo. No hables como robot ni como empresa, sé natural y humano. Usa 'Hermano', 'Bro' o 'Amigo' máximo 1 vez por mensaje, solo cuando sea natural. Usa frases claras como 'Te paso info', 'Miro mi agenda y te confirmo', 'Te anoto'. Sé conversacional, directo y amigable. Ir al grano, no dar vueltas. MENSAJES CORTOS (máximo 3-4 líneas). Completo pero conciso."
     if ya_hay_contexto:
         return base + " No uses saludos pero puedes ser calido. Responde en contexto de la conversación anterior. Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas explicando sobre visagismo en general."
     return base + " Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas."
@@ -196,7 +196,7 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
     
     # Saludo inicial
     if intencion_lower == "saludo_inicial":
-        return f"{tono} Es el primer saludo del cliente. Saluda de forma cálida y natural, preguntando en qué puedes ayudar. Varía el saludo, no siempre digas lo mismo. Puedes mencionar que trabajas con cortes basados en visagismo, pero de forma natural y sin forzarlo. Sé breve y amigable."
+        return f"{tono} Responde MUY BREVE (máximo 2-3 líneas). Ejemplo: 'Buenas hermano, ¿todo bien? ¿Alguna vez te hiciste un corte en base a tu rostro?'. Sé directo y personal."
     
     # Visagismo
     if intencion_lower.startswith("visagismo_"):

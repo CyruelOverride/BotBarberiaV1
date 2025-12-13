@@ -168,6 +168,45 @@ class Chat:
         if "context_data" not in estado:
             estado["context_data"] = {}
         estado["context_data"]["ya_se_saludo"] = True
+        estado["context_data"]["flujo_paso"] = "saludo_inicial"  # Iniciar flujo
+    
+    def get_flujo_paso(self, numero: str) -> str:
+        """Obtiene el paso actual del flujo."""
+        estado = get_estado(numero)
+        return estado.get("context_data", {}).get("flujo_paso", "")
+    
+    def set_flujo_paso(self, numero: str, paso: str):
+        """Establece el paso actual del flujo."""
+        estado = get_estado(numero)
+        if "context_data" not in estado:
+            estado["context_data"] = {}
+        estado["context_data"]["flujo_paso"] = paso
+    
+    def es_respuesta_positiva(self, texto: str) -> bool:
+        """
+        Detecta si la respuesta es positiva (sí, dale, perfecto, etc.).
+        
+        Args:
+            texto: Mensaje del usuario
+            
+        Returns:
+            True si es positiva, False si no
+        """
+        texto_lower = texto.lower().strip()
+        positivas = ["si", "sí", "dale", "ok", "perfecto", "bueno", "bien", "claro", "por supuesto", 
+                     "de acuerdo", "vamos", "joya", "genial", "buenísimo", "buenisimo", "👍", "👌"]
+        
+        # Si el texto es muy corto y contiene palabras positivas
+        if len(texto_lower) <= 20:
+            for palabra in positivas:
+                if palabra in texto_lower:
+                    return True
+        
+        # Si contiene "no" explícitamente, es negativa
+        if any(neg in texto_lower for neg in ["no", "nop", "tampoco", "mejor no"]):
+            return False
+        
+        return False
 
     def funcion_ayuda(self, numero, texto):
         ayuda_texto = (
@@ -244,43 +283,55 @@ class Chat:
             return self.function_graph[texto_lower]['function'](numero, texto_lower)
 
         # ============================================
-        # PRIORIDAD 0: DETECTAR SALUDOS
+        # PRIORIDAD 0: FLUJO SECUENCIAL DE BIENVENIDA
         # ============================================
-        # Si es un saludo y aún no se saludó, usar Gemini para saludo natural y variado
+        # Paso 1: Saludo inicial (respuesta predefinida corta)
         if self.es_saludo(texto_strip) and not self.ya_se_saludo(numero):
             self.marcar_saludo(numero)
-            # Usar Gemini para generar saludo natural y variado
-            try:
-                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-                link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
-                
-                # Generar saludo con Gemini (será variado y natural)
-                saludo_inicial = generar_respuesta_barberia(
-                    intencion="saludo_inicial",
-                    texto_usuario=texto_strip,
-                    info_relevante="",
-                    link_agenda=link_reserva,
-                    link_maps=link_maps,
-                    ya_hay_contexto=False,
-                    chat_service=self.chat_service,
-                    id_chat=self.id_chat,
-                    respuesta_predefinida=None
-                )
-                
-                if saludo_inicial:
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, saludo_inicial)
-            except Exception as e:
-                print(f"⚠️ Error generando saludo con Gemini: {e}")
-                # Fallback: usar respuesta predefinida si Gemini falla
-                saludo_inicial = get_response("saludos", "saludo_inicial")
-                if saludo_inicial:
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, saludo_inicial)
+            saludo_inicial = get_response("saludos", "saludo_inicial")
+            if saludo_inicial:
+                if self.id_chat:
+                    self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
+                return enviar_mensaje_whatsapp(numero, saludo_inicial)
         
-        # Si es un saludo pero ya se saludó, continuar con el flujo normal (no responder solo con saludo)
+        # Paso 2: Si ya se saludó y está en paso "saludo_inicial", detectar respuesta positiva
+        flujo_paso = self.get_flujo_paso(numero)
+        if flujo_paso == "saludo_inicial" and self.ya_se_saludo(numero):
+            if self.es_respuesta_positiva(texto_strip):
+                self.set_flujo_paso(numero, "agendar_turno")
+                respuesta = get_response("saludos", "agendar_turno")
+                if respuesta:
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, respuesta)
+            # Si es negativa o no clara, continuar con flujo normal
+        
+        # Paso 3: Si está en paso "agendar_turno", detectar respuesta positiva y enviar link
+        if flujo_paso == "agendar_turno":
+            if self.es_respuesta_positiva(texto_strip):
+                self.set_flujo_paso(numero, "link_enviado")
+                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+                respuesta = get_response("saludos", "link_agenda")
+                if respuesta:
+                    respuesta = reemplazar_links(respuesta, link_reserva, "")
+                    if link_reserva and link_reserva not in respuesta:
+                        respuesta += f"\n\n{link_reserva}"
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, respuesta)
+            # Si es negativa, continuar con flujo normal
+        
+        # Paso 4: Detectar confirmación de reserva y enviar mensaje post-reserva
+        texto_lower_reserva = texto_lower
+        if flujo_paso == "link_enviado" and any(palabra in texto_lower_reserva for palabra in 
+            ["ya agende", "ya agendé", "reserve", "reservé", "ya reservé", "ya reserve", 
+             "listo", "listo agende", "agende", "agendé", "confirmado", "ya está"]):
+            self.set_flujo_paso(numero, "reserva_confirmada")
+            respuesta = get_response("saludos", "post_reserva")
+            if respuesta:
+                if self.id_chat:
+                    self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+                return enviar_mensaje_whatsapp(numero, respuesta)
 
         # ============================================
         # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
