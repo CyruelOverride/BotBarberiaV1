@@ -29,14 +29,14 @@ def _get_client():
     return _client
 
 
-def count_tokens(text: str, model: str = "gemini-2.5-flash", use_api: bool = True) -> int:
+def count_tokens(text: str, use_api: bool = False) -> int:
     """
-    Cuenta tokens en un texto. Por defecto usa la API de Gemini, pero puede usar estimación.
+    Cuenta tokens en un texto. Por defecto usa estimación local (rápida y sin costo).
+    Solo usa API cuando estás muy cerca del límite o en modo debug.
     
     Args:
         text: Texto a contar
-        model: Modelo a usar (default: gemini-2.5-flash)
-        use_api: Si True, usa API de Gemini. Si False, usa estimación rápida.
+        use_api: Si True, usa API de Gemini. Si False (default), usa estimación rápida.
         
     Returns:
         Número de tokens estimados
@@ -44,36 +44,56 @@ def count_tokens(text: str, model: str = "gemini-2.5-flash", use_api: bool = Tru
     if not text:
         return 0
     
-    # Para estimaciones rápidas (como validación previa), usar estimación sin API
-    if not use_api:
-        # Estimación aproximada (1 token ≈ 4 caracteres en español)
-        return len(text) // 4
+    # Estimación rápida (español ~ 3.8 chars/token, usamos 4 para ser conservadores)
+    estimated = max(1, len(text) // 4)
     
+    if not use_api:
+        return estimated
+    
+    # Solo usar API si explícitamente se solicita (modo debug o validación crítica)
     try:
         client = _get_client()
         if not client:
-            # Fallback: estimación aproximada (1 token ≈ 4 caracteres en español)
-            return len(text) // 4
+            return estimated
         
-        # Usar count_tokens de Gemini (esto NO genera contenido, solo cuenta)
-        result = client.models.count_tokens(model=model, contents=[text])
-        if hasattr(result, 'total_tokens'):
-            return result.total_tokens
-        elif hasattr(result, 'input_tokens'):
-            return result.input_tokens
-        else:
-            # Fallback si no hay atributo esperado
-            return len(text) // 4
+        result = client.models.count_tokens(
+            model="gemini-2.5-flash",
+            contents=[text]
+        )
+        return getattr(result, "total_tokens", estimated)
     except Exception as e:
-        print(f"⚠️ Error contando tokens: {e}, usando estimación")
-        # Fallback: estimación aproximada
-        return len(text) // 4
+        print(f"⚠️ Error contando tokens con API: {e}, usando estimación")
+        return estimated
+
+
+def compact_json_if_present(text: str) -> str:
+    """
+    Compacta JSON si está presente en el texto.
+    Solo procesa si hay exactamente un bloque JSON válido.
+    
+    Args:
+        text: Texto que puede contener JSON
+        
+    Returns:
+        Texto con JSON compactado (si aplica)
+    """
+    # Solo procesar si hay exactamente un bloque JSON
+    if text.count("{") != 1 or text.count("}") != 1:
+        return text
+    
+    try:
+        json_text = text[text.find('{'):text.rfind('}')+1]
+        parsed = json.loads(json_text)
+        compact_json = json.dumps(parsed, ensure_ascii=False, separators=(',', ':'))
+        return text[:text.find('{')] + compact_json + text[text.rfind('}')+1:]
+    except:
+        return text
 
 
 def extract_relevant(text: str) -> str:
     """
     Extrae solo la información esencial del texto.
-    Remueve texto irrelevante, compacta JSON, elimina duplicados.
+    Remueve espacios múltiples y compacta JSON si está presente.
     
     Args:
         text: Texto a procesar
@@ -87,24 +107,11 @@ def extract_relevant(text: str) -> str:
     # Remover espacios múltiples
     text = re.sub(r'\s+', ' ', text)
     
-    # Remover comentarios si hay JSON
-    if '{' in text and '}' in text:
-        try:
-            # Intentar parsear y compactar JSON
-            json_text = text[text.find('{'):text.rfind('}')+1]
-            parsed = json.loads(json_text)
-            compact_json = json.dumps(parsed, ensure_ascii=False, separators=(',', ':'))
-            text = text[:text.find('{')] + compact_json + text[text.rfind('}')+1:]
-        except:
-            pass
+    # Compactar JSON si está presente
+    text = compact_json_if_present(text)
     
-    # Remover líneas vacías múltiples
-    text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)
-    
-    # Remover caracteres de control y espacios al inicio/final
-    text = text.strip()
-    
-    return text
+    # Remover espacios al inicio/final
+    return text.strip()
 
 
 def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
@@ -120,18 +127,18 @@ def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
     """
     base = "Responde con conversación cálida, como si estuvieses hablando con un amigo. No hables como robot ni como empresa, sé natural y humano. Usa 'Hermano', 'Bro' o 'Amigo' máximo 1 vez por mensaje, solo cuando sea natural. Usa frases claras como 'Te paso info', 'Miro mi agenda y te confirmo', 'Te anoto'. Sé conversacional, directo y amigable. Ir al grano, no dar vueltas. Completo pero conciso."
     if ya_hay_contexto:
-        return base + " No uses saludos. Responde en contexto de la conversación anterior. Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas explicando sobre visagismo en general."
+        return base + " No uses saludos pero puedes ser calido. Responde en contexto de la conversación anterior. Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas explicando sobre visagismo en general."
     return base + " Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas."
 
 
 def compress_history(history: List[Dict[str, str]], max_tokens: int = 300) -> str:
     """
-    Comprime el historial de conversación a un resumen de ~max_tokens.
-    Mantiene: datos importantes del usuario, decisiones, intenciones, números relevantes.
+    Comprime el historial de conversación de forma determinista y eficiente.
+    Solo mantiene estado conversacional útil: intenciones y último mensaje del usuario.
     
     Args:
         history: Lista de mensajes con formato [{"role": "user/bot", "content": "..."}, ...]
-        max_tokens: Máximo de tokens para el resumen
+        max_tokens: Máximo de tokens para el resumen (no usado actualmente, se mantiene para compatibilidad)
         
     Returns:
         Resumen comprimido del historial
@@ -139,65 +146,32 @@ def compress_history(history: List[Dict[str, str]], max_tokens: int = 300) -> st
     if not history:
         return ""
     
-    # Extraer información clave
-    intenciones = []
-    decisiones = []
-    numeros = []
-    datos_usuario = []
+    # Obtener último mensaje del usuario
+    last_user = next(
+        (m.get("content", "") for m in reversed(history) if m.get("role") == "user"),
+        ""
+    )
     
-    for msg in history:
-        content = msg.get("content", "")
-        role = msg.get("role", "")
-        
-        # Extraer números (fechas, precios, IDs, etc.)
-        numeros_encontrados = re.findall(r'\b\d+[.,]?\d*\b', content)
-        numeros.extend(numeros_encontrados)
-        
-        # Detectar intenciones clave
-        if any(word in content.lower() for word in ["turno", "reserva", "agenda", "cita"]):
-            intenciones.append("turnos")
-        if any(word in content.lower() for word in ["precio", "costo", "cuanto"]):
-            intenciones.append("precios")
-        if any(word in content.lower() for word in ["visagismo", "rostro", "cara"]):
-            intenciones.append("visagismo")
-        
-        # Datos del usuario (nombres, preferencias)
-        if role == "user":
-            # Extraer nombres propios (palabras capitalizadas)
-            nombres = re.findall(r'\b[A-Z][a-z]+\b', content)
-            datos_usuario.extend(nombres)
+    # Detectar intenciones de forma simple y determinista
+    intents = set()
+    for m in history:
+        c = m.get("content", "").lower()
+        if any(word in c for word in ["turno", "reserva", "agenda", "cita"]):
+            intents.add("turnos")
+        if any(word in c for word in ["precio", "costo", "cuanto"]):
+            intents.add("precios")
+        if any(word in c for word in ["visagismo", "rostro", "cara"]):
+            intents.add("visagismo")
     
-    # Construir resumen
-    resumen_parts = []
+    # Construir resumen mínimo
+    parts = []
+    if intents:
+        parts.append(f"Intenciones previas: {', '.join(sorted(intents))}")
     
-    if intenciones:
-        intenciones_unicas = list(set(intenciones))
-        resumen_parts.append(f"Intenciones: {', '.join(intenciones_unicas)}")
+    if last_user:
+        parts.append(f"Último mensaje usuario: {last_user[:120]}")
     
-    if datos_usuario:
-        datos_unicos = list(set(datos_usuario))[:5]  # Máximo 5 nombres
-        resumen_parts.append(f"Datos usuario: {', '.join(datos_unicos)}")
-    
-    if numeros:
-        numeros_unicos = list(set(numeros))[:10]  # Máximo 10 números
-        resumen_parts.append(f"Números relevantes: {', '.join(numeros_unicos[:10])}")
-    
-    # Agregar último mensaje del usuario si existe
-    for msg in reversed(history):
-        if msg.get("role") == "user":
-            resumen_parts.append(f"Último mensaje usuario: {msg.get('content', '')[:100]}")
-            break
-    
-    resumen = " | ".join(resumen_parts)
-    
-    # Si el resumen es muy largo, truncar
-    tokens_resumen = count_tokens(resumen)
-    if tokens_resumen > max_tokens:
-        # Truncar manteniendo las partes más importantes
-        partes = resumen.split(" | ")
-        resumen = " | ".join(partes[:2])  # Solo primeras 2 partes
-    
-    return resumen
+    return " | ".join(parts)
 
 
 def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
@@ -315,9 +289,9 @@ def build_modular_prompt(
         if texto_limpio:
             parts.append(f"Usuario: {texto_limpio}")
     
-    # 5. Instrucción de contexto si hay conversación previa
-    if ya_hay_contexto:
-        parts.append("Responde en contexto de la conversación anterior. Si el bot hizo una pregunta, responde a esa pregunta específica.")
+    # 5. Instrucción de contexto solo si el bot hizo una pregunta
+    if ya_hay_contexto and ultimo_mensaje_bot and ultimo_mensaje_bot.strip().endswith("?"):
+        parts.append("Responde a la pregunta anterior.")
     
     # 6. Info relevante (solo si existe y es necesaria)
     if info_relevante:
@@ -346,57 +320,6 @@ def build_modular_prompt(
     
     # Unir con saltos de línea simples (sin etiquetas rígidas)
     return "\n".join(parts)
-
-
-def build_optimized_message(
-    tarea: str,
-    datos_utiles: str = "",
-    historial_comprimido: str = "",
-    ultimos_mensajes: List[Dict[str, str]] = None,
-    formato_respuesta: str = ""
-) -> str:
-    """
-    Construye un mensaje optimizado con estructura específica para reducir tokens.
-    DEPRECATED: Usar build_modular_prompt() en su lugar.
-    
-    Args:
-        tarea: Instrucción principal
-        datos_utiles: Datos relevantes extraídos
-        historial_comprimido: Resumen del historial
-        ultimos_mensajes: Lista de últimos mensajes (máx 3 user + 3 bot)
-        formato_respuesta: Formato esperado de respuesta (opcional)
-        
-    Returns:
-        Mensaje estructurado optimizado
-    """
-    parts = []
-    
-    # TAREA (siempre presente)
-    parts.append(f"TAREA:\n{tarea}")
-    
-    # DATOS_UTILES
-    if datos_utiles:
-        parts.append(f"DATOS_UTILES:\n{datos_utiles}")
-    
-    # HISTORIAL_COMPRESO
-    if historial_comprimido:
-        parts.append(f"HISTORIAL_COMPRESO:\n{historial_comprimido}")
-    
-    # ULTIMOS_MENSAJES
-    if ultimos_mensajes:
-        mensajes_str = []
-        for msg in ultimos_mensajes[-6:]:  # Máximo 6 mensajes (3 user + 3 bot)
-            role = msg.get("role", "user")
-            content = msg.get("content", "")
-            mensajes_str.append(f"{role.upper()}: {content}")
-        if mensajes_str:
-            parts.append(f"ULTIMOS_MENSAJES:\n" + "\n".join(mensajes_str))
-    
-    # FORMATO_RESPUESTA
-    if formato_respuesta:
-        parts.append(f"FORMATO_RESPUESTA:\n{formato_respuesta}")
-    
-    return "\n\n".join(parts)
 
 
 def validate_and_compress(
@@ -466,12 +389,61 @@ def log_token_usage(
 
 def get_optimized_config() -> types.GenerateContentConfig:
     """
-    Retorna la configuración optimizada para Gemini (sin thinking tokens).
+    Retorna la configuración optimizada para Gemini.
+    Incluye thinking_budget=0, temperature controlada y límite de output tokens.
     
     Returns:
-        Configuración de Gemini sin thinking tokens
+        Configuración de Gemini optimizada
     """
     return types.GenerateContentConfig(
-        thinking_config=types.ThinkingConfig(thinking_budget=0)
+        thinking_config=types.ThinkingConfig(thinking_budget=0),
+        temperature=0.4,
+        max_output_tokens=MAX_TOKENS_OUTPUT
     )
+
+
+def log_efficiency(prompt: str, response: str, function_name: str = ""):
+    """
+    Loguea métrica de eficiencia: ratio utilidad/token.
+    Permite detectar prompts inflados y comparar intenciones.
+    
+    Args:
+        prompt: Prompt enviado a Gemini
+        response: Respuesta recibida
+        function_name: Nombre de la función (opcional, para contexto)
+    """
+    in_t = count_tokens(prompt)
+    out_t = count_tokens(response)
+    total_tokens = in_t + out_t
+    
+    if total_tokens > 0:
+        efficiency = len(response) / total_tokens
+        print(f"⚡ Eficiencia [{function_name}]: {len(response)} chars / {total_tokens} tokens = {efficiency:.2f} chars/token")
+    else:
+        print(f"⚡ Eficiencia [{function_name}]: Sin tokens")
+
+
+# Mensajes triviales que no requieren procesamiento
+MENSAJES_TRIVIALES = {
+    "ok", "dale", "gracias", "genial", "perfecto",
+    "👍", "👌", "ok gracias", "joya", "si", "sí", "no",
+    "listo", "bien", "bueno"
+}
+
+
+def is_trivial_message(text: str) -> bool:
+    """
+    Detecta si un mensaje es trivial y no requiere procesamiento con Gemini.
+    
+    Args:
+        text: Mensaje del usuario
+        
+    Returns:
+        True si el mensaje es trivial, False si requiere procesamiento
+    """
+    if not text:
+        return True
+    
+    t = text.strip().lower()
+    return t in MENSAJES_TRIVIALES or len(t) <= 4
 

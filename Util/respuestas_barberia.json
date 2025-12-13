@@ -46,8 +46,10 @@
     "no_manejo_web": "Hermano, la forma principal de reservar es siempre por la agenda web, así nos aseguramos que todo quede bien registrado.\nSi te complica, te puedo ir ayudando paso a paso mientras hacés la reserva por la web.\nEntrá a la agenda desde acá y cualquier duda me escribís:",
     "no_encuentro_lugar": "Hermano, estamos en Juan José de Amézaga 2241.\nTe dejo la ubicación en Google Maps para que la veas mejor:\n(link de Google Maps)\nSi estás fuera del horario de tu reserva o muy adelantado, puede que todavía no estemos atendiendo en ese momento. Lo ideal es llegar lo más cerca posible a la hora agendada.",
     "llegando_tarde": "Hermano, no pasa nada.\nYa le avisamos al barbero con el cual agendaste tu turno.",
+    "llegando_tarde_amigo": "Amigo, no pasa nada.\nYa le avisamos al barbero con el cual agendaste tu turno.",
+    "llegando_tarde_bro": "Bro, no pasa nada.\nYa le avisamos al barbero con el cual agendaste tu turno.",
     "llegando_muy_tarde": "Hermano, cuando el atraso es tan largo es muy difícil poder atenderte bien porque tenemos otros turnos agendados detrás.\nEn este caso, lo mejor es que canceles ese turno y te agendes uno nuevo en el primer horario disponible, así podemos darte el tiempo que necesitás y no atrasamos al resto.\nAcá te dejo el link de la agenda:",
-    "politica_horarios": "Hermano, tratamos siempre de respetar los horarios porque cada turno es un espacio reservado solo para vos, y detrás de ese turno suele haber otro cliente esperando.\nPor eso trabajamos solo por agenda y pedimos que, si no podés venir, avises o canceles con tiempo.\nDe esa forma podemos mantener todo prolijo y atender bien.",
+    "politica_horarios": "Hermano, tratamos siempre de respetar los horarios porque cada turno es un espacio reservado solo para vos, y detrás de ese turno suele haber otro cliente esperando.\nPor eso trabajamos solo por agenda y pedimos que, si no podés venir, avises o canceles con tiempo.\nDe esa forma podemos mantener todo prolijo y atender bien a todos.",
     "no_aparen_horarios_agenda": "Hermano, si no te aparece ningún horario disponible es porque por el momento la agenda está completa para esos días.\nProbá moviendo a otros días u horarios más adelante y fijate si te deja reservar.\nSi querés, revisá la agenda de nuevo acá:"
   },
   "otros": {

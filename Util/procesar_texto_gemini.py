@@ -10,7 +10,7 @@ from Util.informacion_barberia import get_info_por_intencion
 from Util.error_handler import manejar_error
 from Util.token_optimizer import (
     count_tokens, extract_relevant, compress_history, build_modular_prompt,
-    validate_and_compress, log_token_usage, get_optimized_config
+    validate_and_compress, log_token_usage, get_optimized_config, is_trivial_message
 )
 from Util.flujo_automatico import procesar_flujo_automatico
 
@@ -88,22 +88,18 @@ def detectar_consulta_reserva(texto: str, numero_cliente: str = None) -> dict:
         # Extraer información relevante del texto
         texto_relevante = extract_relevant(texto)
         
-        # Construir mensaje optimizado
-        tarea = "Determiná si este mensaje es sobre reservas/turnos/citas."
-        datos_utiles = f"Mensaje: {texto_relevante}"
-        formato_respuesta = """Si es sobre reservas/turnos/citas, respondé con JSON:
-{"es_consulta_reserva": true, "respuesta_acorde": "tu respuesta breve y natural aquí"}
+        # Construir prompt directo (más eficiente que estructura rígida)
+        prompt = f"""Determiná si este mensaje es sobre reservas/turnos/citas.
+
+Mensaje: {texto_relevante}
+
+Si es sobre reservas/turnos/citas, respondé con JSON:
+{{"es_consulta_reserva": true, "respuesta_acorde": "tu respuesta breve y natural aquí"}}
 
 Si NO es sobre reservas/turnos/citas, respondé con JSON:
-{"es_consulta_reserva": false, "respuesta_acorde": ""}
+{{"es_consulta_reserva": false, "respuesta_acorde": ""}}
 
 Solo JSON, sin explicaciones."""
-        
-        prompt = build_optimized_message(
-            tarea=tarea,
-            datos_utiles=datos_utiles,
-            formato_respuesta=formato_respuesta
-        )
         
         # Validar y comprimir si es necesario
         prompt, input_tokens = validate_and_compress(prompt)
@@ -162,6 +158,11 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
     Returns:
         String con la respuesta (predefinida o generada por Gemini)
     """
+    # EARLY EXIT: Mensajes triviales que no requieren procesamiento
+    if texto_usuario and is_trivial_message(texto_usuario):
+        # Respuesta simple y directa para mensajes triviales
+        return "¡Dale! Cualquier cosa que necesites, avisame."
+    
     # Si ya se pasó una respuesta predefinida, usarla directamente
     if respuesta_predefinida:
         # Reemplazar links si se proporcionaron

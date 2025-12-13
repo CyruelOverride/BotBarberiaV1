@@ -9,7 +9,7 @@ from typing import Optional, Dict, Tuple
 from google import genai
 from google.genai import types
 from Util.token_optimizer import (
-    extract_relevant, build_optimized_message, validate_and_compress,
+    extract_relevant, validate_and_compress,
     log_token_usage, get_optimized_config, count_tokens
 )
 
@@ -198,22 +198,19 @@ def detectar_clave_con_gemini(texto: str) -> Optional[Tuple[str, str]]:
         if len(claves_disponibles) > 50:
             claves_str += f" ... (total: {len(claves_disponibles)} claves)"
         
-        # Construir mensaje optimizado
-        tarea = "Analizá si el mensaje del usuario coincide con alguna clave de respuestas disponibles."
-        datos_utiles = f"Mensaje: {texto_relevante}\nClaves disponibles: {claves_str}"
-        formato_respuesta = """Respondé SOLO con JSON:
-{"intencion": "nombre_intencion", "clave": "nombre_clave"}
+        # Construir prompt directo (más eficiente que estructura rígida)
+        prompt = f"""Analizá si el mensaje del usuario coincide con alguna clave de respuestas disponibles.
+
+Mensaje: {texto_relevante}
+Claves disponibles: {claves_str}
+
+Respondé SOLO con JSON:
+{{"intencion": "nombre_intencion", "clave": "nombre_clave"}}
 
 Si NO hay coincidencia clara:
-{"intencion": null, "clave": null}
+{{"intencion": null, "clave": null}}
 
 Solo JSON, sin explicaciones."""
-        
-        prompt = build_optimized_message(
-            tarea=tarea,
-            datos_utiles=datos_utiles,
-            formato_respuesta=formato_respuesta
-        )
         
         # Validar y comprimir si es necesario
         prompt, input_tokens = validate_and_compress(prompt)
