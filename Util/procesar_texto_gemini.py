@@ -181,26 +181,22 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
     try:
         texto_strip = texto_usuario.strip()
         
-        # Obtener historial solo si el mensaje es lo suficientemente largo (>= 20 caracteres)
+        # Obtener historial cuando hay contexto de conversación
         historial_comprimido = ""
         ultimos_mensajes = None
         
-        if len(texto_strip) >= 20 and chat_service and id_chat:
+        if ya_hay_contexto and chat_service and id_chat:
             try:
-                # Obtener todos los mensajes para decidir qué usar
+                # Siempre obtener últimos mensajes para contextualización (al menos los últimos 3-4)
+                ultimos_mensajes = chat_service.obtener_ultimos_mensajes(id_chat, limite=4)
+                
+                # Si hay muchos mensajes, también obtener historial comprimido como contexto adicional
                 todos_mensajes = chat_service.obtener_todos_mensajes(id_chat)
-                if todos_mensajes:
-                    # Decidir: historial_comprimido O ultimos_mensajes, no ambos
-                    if len(todos_mensajes) > 10:
-                        # Muchos mensajes: usar solo historial comprimido
-                        historial_comprimido = compress_history(todos_mensajes)
-                        ultimos_mensajes = None
-                        print(f"📚 Usando historial comprimido ({len(todos_mensajes)} mensajes totales)")
-                    else:
-                        # Pocos mensajes: usar solo últimos mensajes
-                        ultimos_mensajes = chat_service.obtener_ultimos_mensajes(id_chat, limite=6)
-                        historial_comprimido = ""
-                        print(f"📝 Usando últimos mensajes ({len(ultimos_mensajes)} mensajes)")
+                if todos_mensajes and len(todos_mensajes) > 10:
+                    historial_comprimido = compress_history(todos_mensajes)
+                    print(f"📚 Usando historial comprimido + últimos mensajes ({len(todos_mensajes)} mensajes totales)")
+                else:
+                    print(f"📝 Usando últimos mensajes ({len(ultimos_mensajes) if ultimos_mensajes else 0} mensajes)")
             except Exception as e:
                 print(f"⚠️ Error obteniendo historial: {e}")
         

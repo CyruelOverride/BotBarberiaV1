@@ -310,17 +310,21 @@ class Chat:
         
         ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
         
-        # Obtener historial si aplica
+        # Obtener historial cuando hay contexto de conversación
         historial_comprimido = ""
         ultimos_mensajes = None
-        if len(texto_strip) >= 20 and self.chat_service and self.id_chat:
+        if ya_hay_contexto and self.chat_service and self.id_chat:
             try:
+                # Siempre obtener últimos mensajes para contextualización (al menos los últimos 3-4)
+                ultimos_mensajes = self.chat_service.obtener_ultimos_mensajes(self.id_chat, limite=4)
+                
+                # Si hay muchos mensajes, también obtener historial comprimido como contexto adicional
                 todos_mensajes = self.chat_service.obtener_todos_mensajes(self.id_chat)
-                if todos_mensajes:
-                    if len(todos_mensajes) > 10:
-                        historial_comprimido = compress_history(todos_mensajes)
-                    else:
-                        ultimos_mensajes = self.chat_service.obtener_ultimos_mensajes(self.id_chat, limite=6)
+                if todos_mensajes and len(todos_mensajes) > 10:
+                    historial_comprimido = compress_history(todos_mensajes)
+                    print(f"📚 Usando historial comprimido + últimos mensajes ({len(todos_mensajes)} mensajes totales)")
+                else:
+                    print(f"📝 Usando últimos mensajes ({len(ultimos_mensajes) if ultimos_mensajes else 0} mensajes)")
             except Exception as e:
                 print(f"⚠️ Error obteniendo historial: {e}")
         

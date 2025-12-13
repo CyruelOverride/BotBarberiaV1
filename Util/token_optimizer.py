@@ -120,7 +120,7 @@ def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
     """
     base = "Responde con tono informal pero profesional, usando 'Hermano' o 'Bro' de forma natural. Sé conversacional, directo y amigable. Como hablar con un amigo, no robótico. Completo pero conciso."
     if ya_hay_contexto:
-        return base + " No uses saludos."
+        return base + " No uses saludos. Responde en contexto de la conversación anterior."
     return base
 
 
@@ -286,13 +286,36 @@ def build_modular_prompt(
     prompt_especifico = _get_prompt_especifico(intencion, ya_hay_contexto)
     parts.append(prompt_especifico)
     
-    # 2. Mensaje del usuario (siempre presente, pero extraído)
+    # 2. Extraer último mensaje del bot si existe (para contextualización)
+    ultimo_mensaje_bot = None
+    if ultimos_mensajes:
+        # Buscar el último mensaje del bot (recorrer desde el final)
+        for msg in reversed(ultimos_mensajes):
+            if not msg.get("es_cliente", True):  # Es mensaje del bot
+                ultimo_mensaje_bot = msg.get("contenido", "")
+                break
+    
+    # 3. Estructurar conversación: último mensaje del bot (si existe) + mensaje del usuario
+    if ya_hay_contexto and ultimo_mensaje_bot:
+        # Incluir último mensaje del bot completo (no truncar tanto para mantener contexto)
+        ultimo_bot_limpio = extract_relevant(ultimo_mensaje_bot)
+        if ultimo_bot_limpio:
+            # No truncar el último mensaje del bot, o truncar menos (máx 300 chars)
+            if len(ultimo_bot_limpio) > 300:
+                ultimo_bot_limpio = ultimo_bot_limpio[:300] + "..."
+            parts.append(f"Bot: {ultimo_bot_limpio}")
+    
+    # 4. Mensaje del usuario (siempre presente, pero extraído)
     if texto_usuario:
         texto_limpio = extract_relevant(texto_usuario)
         if texto_limpio:
             parts.append(f"Usuario: {texto_limpio}")
     
-    # 3. Info relevante (solo si existe y es necesaria)
+    # 5. Instrucción de contexto si hay conversación previa
+    if ya_hay_contexto:
+        parts.append("Responde en contexto de la conversación anterior. Si el bot hizo una pregunta, responde a esa pregunta específica.")
+    
+    # 6. Info relevante (solo si existe y es necesaria)
     if info_relevante:
         info_limpia = extract_relevant(info_relevante)
         if info_limpia and len(info_limpia) > 20:  # Solo si tiene contenido sustancial
@@ -301,21 +324,21 @@ def build_modular_prompt(
                 info_limpia = info_limpia[:200] + "..."
             parts.append(f"Info: {info_limpia}")
     
-    # 4. Historial (solo uno: comprimido O últimos mensajes, nunca ambos)
+    # 7. Historial adicional (solo si no se incluyó el último mensaje del bot explícitamente)
     if historial_comprimido:
         # Truncar historial si es muy largo (máx 150 chars)
         if len(historial_comprimido) > 150:
             historial_comprimido = historial_comprimido[:150] + "..."
-        parts.append(f"Contexto: {historial_comprimido}")
-    elif ultimos_mensajes:
-        # Solo últimos 2-3 mensajes para mantenerlo corto
+        parts.append(f"Contexto adicional: {historial_comprimido}")
+    elif ultimos_mensajes and not ultimo_mensaje_bot:
+        # Si hay mensajes pero no se encontró mensaje del bot, incluir contexto general
         mensajes_cortos = []
-        for msg in ultimos_mensajes[-4:]:  # Máximo 4 mensajes (2 user + 2 bot)
+        for msg in ultimos_mensajes[-3:]:  # Máximo 3 mensajes
             role = "U" if msg.get("es_cliente") else "B"
-            content = msg.get("contenido", "")[:100]  # Truncar cada mensaje a 100 chars
+            content = msg.get("contenido", "")[:150]  # Aumentar límite a 150 chars
             mensajes_cortos.append(f"{role}: {content}")
         if mensajes_cortos:
-            parts.append("Contexto: " + " | ".join(mensajes_cortos))
+            parts.append("Contexto adicional: " + " | ".join(mensajes_cortos))
     
     # Unir con saltos de línea simples (sin etiquetas rígidas)
     return "\n".join(parts)
