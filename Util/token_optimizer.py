@@ -107,6 +107,23 @@ def extract_relevant(text: str) -> str:
     return text
 
 
+def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
+    """
+    Retorna las instrucciones de tono para los prompts.
+    Centraliza las instrucciones para mantener consistencia.
+    
+    Args:
+        ya_hay_contexto: Si ya hay contexto de conversación (para evitar saludos)
+        
+    Returns:
+        String con instrucciones de tono
+    """
+    base = "Responde con tono informal pero profesional, usando 'Hermano' o 'Bro' de forma natural. Sé conversacional, directo y amigable. Como hablar con un amigo, no robótico. Completo pero conciso."
+    if ya_hay_contexto:
+        return base + " No uses saludos."
+    return base
+
+
 def compress_history(history: List[Dict[str, str]], max_tokens: int = 300) -> str:
     """
     Comprime el historial de conversación a un resumen de ~max_tokens.
@@ -187,58 +204,57 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
     """
     Retorna un prompt corto y específico según la intención detectada.
     Solo incluye lo esencial, sin estructura rígida.
+    Incluye instrucciones de tono para mantener consistencia.
     
     Args:
         intencion: Intención detectada (ej: "visagismo_redondo", "turnos", "precios")
         ya_hay_contexto: Si ya hay contexto de conversación
         
     Returns:
-        Prompt específico y corto
+        Prompt específico y corto con instrucciones de tono
     """
+    tono = _get_instrucciones_tono(ya_hay_contexto)
+    
     if not intencion:
-        if ya_hay_contexto:
-            return "Responde breve y natural. No uses saludos."
-        return "Responde breve y natural."
+        return tono
     
     intencion_lower = intencion.lower()
     
     # Visagismo
     if intencion_lower.startswith("visagismo_"):
         tipo_rostro = intencion.replace("visagismo_", "").replace("_", " ")
-        return f"Cliente mencionó {tipo_rostro}. Da info directa. No preguntes de nuevo. Al final di 'te puedo hacer esto o contame si tenes una idea ya'."
+        return f"{tono} Cliente mencionó {tipo_rostro}. Da info directa. No preguntes de nuevo. Al final di 'te puedo hacer esto o contame si tenes una idea ya'."
     
     # Turnos
     if intencion_lower == "turnos":
-        return "Cliente pregunta por turnos. Responde breve con link de agenda."
+        return f"{tono} Cliente pregunta por turnos. Responde breve con link de agenda."
     
     # Precios
     if intencion_lower == "precios":
-        return "Cliente pregunta precios. Responde con lista breve."
+        return f"{tono} Cliente pregunta precios. Responde con lista breve."
     
     # Ubicación
     if intencion_lower == "ubicacion":
-        return "Cliente pregunta ubicación. Responde breve con dirección."
+        return f"{tono} Cliente pregunta ubicación. Responde breve con dirección."
     
     # Barba
     if intencion_lower == "barba":
-        return "Cliente pregunta por barba. Responde breve confirmando que sí se hace."
+        return f"{tono} Cliente pregunta por barba. Responde breve confirmando que sí se hace."
     
     # Productos
     if intencion_lower == "productos_lc":
-        return "Cliente pregunta por productos. Responde breve con info y precio."
+        return f"{tono} Cliente pregunta por productos. Responde breve con info y precio."
     
     # Diferencial
     if intencion_lower == "diferencial":
-        return "Cliente pregunta diferencial. Responde breve destacando visagismo y turnos."
+        return f"{tono} Cliente pregunta diferencial. Responde breve destacando visagismo y turnos."
     
     # Cortes
     if intencion_lower == "cortes":
-        return "Cliente pregunta por cortes. Responde breve sobre visagismo."
+        return f"{tono} Cliente pregunta por cortes. Responde breve sobre visagismo."
     
     # Default: prompt genérico corto
-    if ya_hay_contexto:
-        return f"Responde sobre {intencion}. Breve y natural. No saludos."
-    return f"Responde sobre {intencion}. Breve y natural."
+    return f"{tono} Responde sobre {intencion}."
 
 
 def build_modular_prompt(
