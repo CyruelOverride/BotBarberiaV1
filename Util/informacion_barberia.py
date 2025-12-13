@@ -4,7 +4,7 @@ Cada función devuelve solo el bloque de información necesario según la intenc
 """
 
 # Variables configurables
-LINK_RESERVA = "ejemploLinkReserva.com"  # Link de Weybook (configurar)
+LINK_RESERVA = "linkagenda.com"  # Link de Weybook (configurar)
 NUMERO_DERIVACION = ""  # Número para derivar a humano (configurar)
 
 

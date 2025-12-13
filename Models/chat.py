@@ -285,10 +285,22 @@ class Chat:
         # ============================================
         # PRIORIDAD 0: FLUJO SECUENCIAL DE BIENVENIDA
         # ============================================
-        # Paso 1: Saludo inicial (respuesta predefinida corta)
+        # Paso 1: Saludo inicial (usar Gemini con ejemplos)
         if self.es_saludo(texto_strip) and not self.ya_se_saludo(numero):
             self.marcar_saludo(numero)
-            saludo_inicial = get_response("saludos", "saludo_inicial")
+            link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+            link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
+            saludo_inicial = generar_respuesta_barberia(
+                intencion="saludo_inicial",
+                texto_usuario=texto_strip,
+                info_relevante="",
+                link_agenda=link_reserva,
+                link_maps=link_maps,
+                ya_hay_contexto=False,
+                chat_service=self.chat_service,
+                id_chat=self.id_chat,
+                respuesta_predefinida=None
+            )
             if saludo_inicial:
                 if self.id_chat:
                     self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
@@ -299,7 +311,18 @@ class Chat:
         if flujo_paso == "saludo_inicial" and self.ya_se_saludo(numero):
             if self.es_respuesta_positiva(texto_strip):
                 self.set_flujo_paso(numero, "agendar_turno")
-                respuesta = get_response("saludos", "agendar_turno")
+                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+                respuesta = generar_respuesta_barberia(
+                    intencion="agendar_turno",
+                    texto_usuario=texto_strip,
+                    info_relevante="",
+                    link_agenda=link_reserva,
+                    link_maps="",
+                    ya_hay_contexto=True,
+                    chat_service=self.chat_service,
+                    id_chat=self.id_chat,
+                    respuesta_predefinida=None
+                )
                 if respuesta:
                     if self.id_chat:
                         self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
@@ -311,7 +334,17 @@ class Chat:
             if self.es_respuesta_positiva(texto_strip):
                 self.set_flujo_paso(numero, "link_enviado")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-                respuesta = get_response("saludos", "link_agenda")
+                respuesta = generar_respuesta_barberia(
+                    intencion="link_agenda",
+                    texto_usuario=texto_strip,
+                    info_relevante="",
+                    link_agenda=link_reserva,
+                    link_maps="",
+                    ya_hay_contexto=True,
+                    chat_service=self.chat_service,
+                    id_chat=self.id_chat,
+                    respuesta_predefinida=None
+                )
                 if respuesta:
                     respuesta = reemplazar_links(respuesta, link_reserva, "")
                     if link_reserva and link_reserva not in respuesta:
@@ -327,7 +360,17 @@ class Chat:
             ["ya agende", "ya agendé", "reserve", "reservé", "ya reservé", "ya reserve", 
              "listo", "listo agende", "agende", "agendé", "confirmado", "ya está"]):
             self.set_flujo_paso(numero, "reserva_confirmada")
-            respuesta = get_response("saludos", "post_reserva")
+            respuesta = generar_respuesta_barberia(
+                intencion="post_reserva",
+                texto_usuario=texto_strip,
+                info_relevante="",
+                link_agenda="",
+                link_maps="",
+                ya_hay_contexto=True,
+                chat_service=self.chat_service,
+                id_chat=self.id_chat,
+                respuesta_predefinida=None
+            )
             if respuesta:
                 if self.id_chat:
                     self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)

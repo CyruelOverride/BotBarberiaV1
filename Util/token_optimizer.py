@@ -196,7 +196,10 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
     
     # Saludo inicial
     if intencion_lower == "saludo_inicial":
-        return f"{tono} Responde MUY BREVE (máximo 2-3 líneas). Ejemplo: 'Buenas hermano, ¿todo bien? ¿Alguna vez te hiciste un corte en base a tu rostro?'. Sé directo y personal."
+        return f"""{tono} 
+Genera un saludo inicial MUY BREVE (máximo 2-3 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
+Ejemplo de estilo: "Buenas hermano, ¿todo bien? ¿Alguna vez te hiciste un corte en base a tu rostro?"
+Varía el saludo, usa diferentes palabras pero mantén el tono cálido, personal y la pregunta sobre cortes en base al rostro. Sé directo y natural."""
     
     # Visagismo
     if intencion_lower.startswith("visagismo_"):
@@ -206,6 +209,27 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
     # Turnos
     if intencion_lower == "turnos":
         return f"{tono} Cliente pregunta por turnos. Responde breve con link de agenda."
+    
+    # Agendar turno (flujo secuencial)
+    if intencion_lower == "agendar_turno":
+        return f"""{tono}
+El cliente respondió positivamente al saludo inicial. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
+Ejemplo de estilo: "Buenísimo bro. Agendamos un turno para que pruebes por primera vez un corte en base a tu rostro, te parece?"
+Varía las palabras pero mantén el tono cálido, la propuesta de agendar turno y la mención al corte en base al rostro."""
+    
+    # Link agenda (flujo secuencial)
+    if intencion_lower == "link_agenda":
+        return f"""{tono}
+El cliente confirmó que quiere agendar. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
+Ejemplo de estilo: "Perfecto bro, te dejo el link de la agenda así elegís día y hora. Cualquier duda escribime, estamos a las órdenes."
+Varía las palabras pero mantén el tono positivo, menciona el link de agenda y ofrece ayuda. El link se agregará automáticamente."""
+    
+    # Post reserva (flujo secuencial)
+    if intencion_lower == "post_reserva":
+        return f"""{tono}
+El cliente confirmó que agendó. Genera una respuesta breve pero importante (máximo 4-5 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
+Ejemplo de estilo: "Bro, una cosa importante: como trabajamos solo por agenda, si por algún motivo no podés venir, avisá o cancelá el turno con tiempo. Así ese horario se lo podemos dar a otro cliente que también necesita ser asesorado y cortarse. Gracias por entender hermano."
+Varía las palabras pero mantén el tono amigable, la importancia de avisar/cancelar con tiempo, y el agradecimiento."""
     
     # Precios
     if intencion_lower == "precios":
