@@ -207,6 +207,42 @@ class Chat:
             return False
         
         return False
+    
+    def quiere_link(self, texto: str) -> bool:
+        """
+        Detecta si el usuario está pidiendo explícitamente el link de la agenda.
+        
+        Args:
+            texto: Mensaje del usuario
+            
+        Returns:
+            True si está pidiendo el link, False si no
+        """
+        if not texto:
+            return False
+        
+        texto_lower = texto.lower().strip()
+        
+        # Frases que indican que quiere el link
+        frases_link = [
+            "pasame", "pásame", "pasame el link", "pásame el link",
+            "dale pasame", "dale pásame", "pasame el link", "pásame el link",
+            "pásame la agenda", "pasame la agenda", "pásame link", "pasame link",
+            "mandame", "mándame", "mandame el link", "mándame el link",
+            "dame", "dame el link", "dame link", "dame la agenda",
+            "envíame", "envíame el link", "envíame link", "envíame la agenda",
+            "quiero agendar", "quiero reservar", "quiero turno",
+            "necesito agendar", "necesito reservar", "necesito turno",
+            "link", "la agenda", "el link", "link de agenda"
+        ]
+        
+        # Si el mensaje es corto y contiene alguna frase de link
+        if len(texto_lower) <= 30:
+            for frase in frases_link:
+                if frase in texto_lower:
+                    return True
+        
+        return False
 
     def funcion_ayuda(self, numero, texto):
         ayuda_texto = (
@@ -309,7 +345,30 @@ class Chat:
         # Paso 2: Si ya se saludó y está en paso "saludo_inicial", detectar respuesta positiva
         flujo_paso = self.get_flujo_paso(numero)
         if flujo_paso == "saludo_inicial" and self.ya_se_saludo(numero):
-            if self.es_respuesta_positiva(texto_strip):
+            # PRIORIDAD: Si pide el link explícitamente, enviarlo directamente
+            if self.quiere_link(texto_strip):
+                self.set_flujo_paso(numero, "link_enviado")
+                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+                respuesta = generar_respuesta_barberia(
+                    intencion="link_agenda",
+                    texto_usuario=texto_strip,
+                    info_relevante="",
+                    link_agenda=link_reserva,
+                    link_maps="",
+                    ya_hay_contexto=True,
+                    chat_service=self.chat_service,
+                    id_chat=self.id_chat,
+                    respuesta_predefinida=None
+                )
+                if respuesta:
+                    respuesta = reemplazar_links(respuesta, link_reserva, "")
+                    # FORZAR link siempre en respuestas de link_agenda
+                    if link_reserva and link_reserva not in respuesta:
+                        respuesta += f"\n\n{link_reserva}"
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, respuesta)
+            elif self.es_respuesta_positiva(texto_strip):
                 self.set_flujo_paso(numero, "agendar_turno")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
                 respuesta = generar_respuesta_barberia(
@@ -331,7 +390,8 @@ class Chat:
         
         # Paso 3: Si está en paso "agendar_turno", detectar respuesta positiva y enviar link
         if flujo_paso == "agendar_turno":
-            if self.es_respuesta_positiva(texto_strip):
+            # PRIORIDAD: Si pide el link explícitamente, enviarlo directamente
+            if self.quiere_link(texto_strip):
                 self.set_flujo_paso(numero, "link_enviado")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
                 respuesta = generar_respuesta_barberia(
@@ -347,19 +407,31 @@ class Chat:
                 )
                 if respuesta:
                     respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    # Asegurar que el link esté presente si se menciona
-                    import re
-                    if link_reserva:
-                        menciona_link = re.search(
-                            r"(link|agenda).*(?:te paso|te dejo|te mando|ahí|ahi)",
-                            respuesta,
-                            re.IGNORECASE
-                        )
-                        if menciona_link and link_reserva not in respuesta:
-                            respuesta += f"\n\n{link_reserva}"
-                        elif not menciona_link and link_reserva not in respuesta:
-                            # Para link_agenda siempre incluir el link
-                            respuesta += f"\n\n{link_reserva}"
+                    # FORZAR link siempre en respuestas de link_agenda
+                    if link_reserva and link_reserva not in respuesta:
+                        respuesta += f"\n\n{link_reserva}"
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, respuesta)
+            elif self.es_respuesta_positiva(texto_strip):
+                self.set_flujo_paso(numero, "link_enviado")
+                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+                respuesta = generar_respuesta_barberia(
+                    intencion="link_agenda",
+                    texto_usuario=texto_strip,
+                    info_relevante="",
+                    link_agenda=link_reserva,
+                    link_maps="",
+                    ya_hay_contexto=True,
+                    chat_service=self.chat_service,
+                    id_chat=self.id_chat,
+                    respuesta_predefinida=None
+                )
+                if respuesta:
+                    respuesta = reemplazar_links(respuesta, link_reserva, "")
+                    # FORZAR link siempre en respuestas de link_agenda
+                    if link_reserva and link_reserva not in respuesta:
+                        respuesta += f"\n\n{link_reserva}"
                     if self.id_chat:
                         self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                     return enviar_mensaje_whatsapp(numero, respuesta)
@@ -392,6 +464,29 @@ class Chat:
         # ============================================
         # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
         intencion_critica = detectar_intencion(texto_strip)
+        
+        # DETECCIÓN ESPECIAL: Si el usuario pide el link explícitamente, enviarlo directamente
+        if self.quiere_link(texto_strip):
+            link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+            respuesta = generar_respuesta_barberia(
+                intencion="link_agenda",
+                texto_usuario=texto_strip,
+                info_relevante="",
+                link_agenda=link_reserva,
+                link_maps="",
+                ya_hay_contexto=True,
+                chat_service=self.chat_service,
+                id_chat=self.id_chat,
+                respuesta_predefinida=None
+            )
+            if respuesta:
+                respuesta = reemplazar_links(respuesta, link_reserva, "")
+                # FORZAR link siempre en respuestas de link_agenda
+                if link_reserva and link_reserva not in respuesta:
+                    respuesta += f"\n\n{link_reserva}"
+                if self.id_chat:
+                    self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+                return enviar_mensaje_whatsapp(numero, respuesta)
         
         if intencion_critica == "derivar_humano":
             mensaje_derivacion = (
@@ -522,7 +617,10 @@ class Chat:
             # Reemplazar links en la respuesta final
             respuesta_final = reemplazar_links(respuesta, link_reserva, link_maps)
             
-            # Detectar si menciona link/agenda pero no está presente (detección adicional)
+            # FORZAR link si:
+            # 1. La intención es "turnos" o "link_agenda"
+            # 2. El usuario preguntó por turnos/agenda/reserva
+            # 3. Se menciona link/agenda pero no está presente
             import re
             menciona_link_o_agenda = re.search(
                 r"(link|agenda|reserva|turno).*(?:te paso|te dejo|te mando|ahí|ahi)",
@@ -530,11 +628,16 @@ class Chat:
                 re.IGNORECASE
             )
             
-            # Si es sobre turnos/agenda y no tiene link, agregarlo
-            if (("turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower) and link_reserva) or \
-               (menciona_link_o_agenda and link_reserva and link_reserva not in respuesta_final):
-                if link_reserva not in respuesta_final:
-                    respuesta_final += f"\n\n{link_reserva}"
+            debe_incluir_link = False
+            if intencion_critica and intencion_critica.lower() in ["turnos", "link_agenda"]:
+                debe_incluir_link = True
+            elif "turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower:
+                debe_incluir_link = True
+            elif menciona_link_o_agenda:
+                debe_incluir_link = True
+            
+            if debe_incluir_link and link_reserva and link_reserva not in respuesta_final:
+                respuesta_final += f"\n\n{link_reserva}"
             
             if self.id_chat:
                 self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
