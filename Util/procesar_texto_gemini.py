@@ -8,6 +8,10 @@ from Util.respuestas_barberia import get_respuesta_predefinida, reemplazar_links
 from Util.intents import detectar_intencion
 from Util.informacion_barberia import get_info_por_intencion
 from Util.error_handler import manejar_error
+from Util.token_optimizer import (
+    count_tokens, extract_relevant, compress_history, build_optimized_message,
+    validate_and_compress, log_token_usage, get_optimized_config
+)
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -18,7 +22,8 @@ def _get_prompt_base() -> str:
     """
     return """Sos un asistente de barbería. Tono cercano: "bro", "hermano", "amigo".
 Respondé según la información que recibís. Sé breve y natural.
-Idioma: español. No uses formato Markdown."""
+Idioma: español. No uses formato Markdown.
+IMPORTANTE: No uses saludos genéricos como "que onda?" o "hola" a menos que sea el primer mensaje de la conversación. Si ya hay contexto, ve directo al grano."""
 
 
 def _extraer_json_robusto(texto: str) -> Optional[dict]:
@@ -89,28 +94,41 @@ def detectar_consulta_reserva(texto: str, numero_cliente: str = None) -> dict:
     
     # Solo usar Gemini si es ambiguo (no se detectó intención clara)
     try:
-        prompt_base = _get_prompt_base()
-        prompt = f"""{prompt_base}
-
-Determiná si este mensaje es sobre reservas/turnos/citas: "{texto}"
-
-Si es sobre reservas/turnos/citas, respondé con JSON:
-{{"es_consulta_reserva": true, "respuesta_acorde": "tu respuesta breve y natural aquí"}}
+        # Extraer información relevante del texto
+        texto_relevante = extract_relevant(texto)
+        
+        # Construir mensaje optimizado
+        tarea = "Determiná si este mensaje es sobre reservas/turnos/citas."
+        datos_utiles = f"Mensaje: {texto_relevante}"
+        formato_respuesta = """Si es sobre reservas/turnos/citas, respondé con JSON:
+{"es_consulta_reserva": true, "respuesta_acorde": "tu respuesta breve y natural aquí"}
 
 Si NO es sobre reservas/turnos/citas, respondé con JSON:
-{{"es_consulta_reserva": false, "respuesta_acorde": ""}}
+{"es_consulta_reserva": false, "respuesta_acorde": ""}
 
 Solo JSON, sin explicaciones."""
+        
+        prompt = build_optimized_message(
+            tarea=tarea,
+            datos_utiles=datos_utiles,
+            formato_respuesta=formato_respuesta
+        )
+        
+        # Validar y comprimir si es necesario
+        prompt, input_tokens = validate_and_compress(prompt)
+        
+        # Contar tokens antes de enviar
+        log_token_usage("detectar_consulta_reserva", input_tokens, 0)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[prompt],
-            config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_budget=0)
-            ),
+            config=get_optimized_config(),
         )
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
+        output_tokens = count_tokens(response_text) if response_text else 0
+        log_token_usage("detectar_consulta_reserva", input_tokens, output_tokens)
         
         if not response_text:
             print("⚠️ Respuesta vacía de Gemini en detectar_consulta_reserva")
@@ -135,7 +153,7 @@ Solo JSON, sin explicaciones."""
         return {"es_consulta_reserva": False, "respuesta_acorde": "", "error": True}
 
 
-def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", info_relevante: str = "", link_agenda: str = "", link_maps: str = "") -> str:
+def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", info_relevante: str = "", link_agenda: str = "", link_maps: str = "", ya_hay_contexto: bool = False, chat_service=None, id_chat: str = None) -> str:
     """
     Genera una respuesta conversacional. Primero intenta usar respuestas predefinidas,
     luego usa información de informacion_barberia.py si está disponible,
@@ -169,42 +187,65 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
     if intencion and not info_relevante:
         info_relevante = get_info_por_intencion(intencion)
     
+    # Detectar si es una intención de visagismo
+    es_visagismo = intencion and intencion.startswith("visagismo_")
+    
     # FALLBACK: Si no hay respuesta predefinida, usar Gemini
     # Si hay info_relevante, incluirla; si no, usar prompt corto (solo tono)
     try:
-        prompt_base = _get_prompt_base()
+        # Obtener historial si está disponible
+        historial_comprimido = ""
+        ultimos_mensajes = []
         
-        if info_relevante:
-            # Prompt corto + información relevante como contenido separado
-            prompt = f"""{prompt_base}
-
-Mensaje del cliente: "{texto_usuario}"
-
-Respondé basándote en esta información:"""
-            
-            # Construir contents con prompt e info separados
-            contents = [
-                prompt,
-                f"\n{info_relevante}\n\nResponde ahora:"
-            ]
+        if chat_service and id_chat:
+            try:
+                # Obtener todos los mensajes para comprimir
+                todos_mensajes = chat_service.obtener_todos_mensajes(id_chat)
+                if todos_mensajes:
+                    # Comprimir historial si hay muchos mensajes
+                    if len(todos_mensajes) > 3:
+                        historial_comprimido = compress_history(todos_mensajes)
+                    
+                    # Obtener últimos mensajes (máx 3 user + 3 bot)
+                    ultimos_mensajes = chat_service.obtener_ultimos_mensajes(id_chat, limite=6)
+            except Exception as e:
+                print(f"⚠️ Error obteniendo historial: {e}")
+        
+        # Extraer información relevante
+        texto_relevante = extract_relevant(texto_usuario)
+        info_relevante_limpia = extract_relevant(info_relevante) if info_relevante else ""
+        
+        # Construir tarea según el caso
+        if es_visagismo:
+            tarea = "El cliente ya mencionó su tipo de estructura facial. DALE LA INFORMACIÓN DIRECTAMENTE. No preguntes otra vez sobre su tipo de rostro. Da la información directamente. Al final, di algo como 'te puedo hacer esto o contame si tenes una idea ya'. Sé directo y natural, sin saludos genéricos."
         else:
-            # Prompt corto solo con tono (sin información)
-            prompt = f"""{prompt_base}
-
-Mensaje del cliente: "{texto_usuario}"
-
-Responde ahora:"""
-            contents = [prompt]
+            tarea = "Respondé al mensaje del cliente de forma natural y breve."
+            if ya_hay_contexto:
+                tarea += " Ya hay una conversación en curso, NO uses saludos genéricos como 'que onda?' o 'hola'. Ve directo a responder."
+        
+        # Construir mensaje optimizado
+        prompt = build_optimized_message(
+            tarea=tarea,
+            datos_utiles=info_relevante_limpia if info_relevante_limpia else f"Mensaje: {texto_relevante}",
+            historial_comprimido=historial_comprimido,
+            ultimos_mensajes=ultimos_mensajes if ultimos_mensajes else None
+        )
+        
+        # Validar y comprimir si es necesario
+        prompt, input_tokens = validate_and_compress(prompt)
+        
+        # Contar tokens antes de enviar
+        log_token_usage("generar_respuesta_barberia", input_tokens, 0)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_budget=0)
-            ),
+            contents=[prompt],
+            config=get_optimized_config(),
         )
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
+        output_tokens = count_tokens(response_text) if response_text else 0
+        log_token_usage("generar_respuesta_barberia", input_tokens, output_tokens)
         
         if not response_text:
             print("⚠️ Respuesta vacía de Gemini en generar_respuesta_barberia")

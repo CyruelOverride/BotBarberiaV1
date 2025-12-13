@@ -3,6 +3,7 @@ import time
 import tempfile
 import requests
 from google import genai
+from Util.token_optimizer import log_token_usage, count_tokens, get_optimized_config
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
@@ -22,11 +23,21 @@ def get_transcription(binary_audio: bytes) -> str:
                 
                 myfile = client.files.upload(file=temp_file_path)
 
+                # Contar tokens del prompt (solo texto, el archivo no se cuenta aquí)
+                prompt_text = "Transcribe this audio file"
+                input_tokens = count_tokens(prompt_text)
+                log_token_usage("get_transcription", input_tokens, 0)
+
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash", contents=["Transcribe this audio file", myfile]
+                    model="gemini-2.5-flash", 
+                    contents=[prompt_text, myfile],
+                    config=get_optimized_config()
                 )
                 
                 texto = response.text
+                output_tokens = count_tokens(texto) if texto else 0
+                log_token_usage("get_transcription", input_tokens, output_tokens)
+                
                 print(f"✅ Transcripción exitosa: {texto[:50]}...")
                 return texto
                     

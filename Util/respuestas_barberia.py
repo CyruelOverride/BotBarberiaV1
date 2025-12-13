@@ -8,6 +8,10 @@ import os
 from typing import Optional, Dict, Tuple
 from google import genai
 from google.genai import types
+from Util.token_optimizer import (
+    extract_relevant, build_optimized_message, validate_and_compress,
+    log_token_usage, get_optimized_config, count_tokens
+)
 
 # Ruta al archivo JSON de respuestas
 RESPUESTAS_JSON_PATH = os.path.join(
@@ -188,29 +192,44 @@ def detectar_clave_con_gemini(texto: str) -> Optional[Tuple[str, str]]:
             for clave in respuestas_intencion.keys():
                 claves_disponibles.append(f"{intencion}.{clave}")
         
-        # Crear prompt para Gemini
-        prompt = f"""Analizá este mensaje del usuario: "{texto}"
+        # Extraer información relevante
+        texto_relevante = extract_relevant(texto)
+        claves_str = ', '.join(claves_disponibles[:50])  # Limitar a 50 claves para reducir tokens
+        if len(claves_disponibles) > 50:
+            claves_str += f" ... (total: {len(claves_disponibles)} claves)"
+        
+        # Construir mensaje optimizado
+        tarea = "Analizá si el mensaje del usuario coincide con alguna clave de respuestas disponibles."
+        datos_utiles = f"Mensaje: {texto_relevante}\nClaves disponibles: {claves_str}"
+        formato_respuesta = """Respondé SOLO con JSON:
+{"intencion": "nombre_intencion", "clave": "nombre_clave"}
 
-¿El usuario quiere algo que coincida con alguna de estas claves de respuestas?
-
-Claves disponibles:
-{', '.join(claves_disponibles)}
-
-Respondé SOLO con JSON en este formato:
-{{"intencion": "nombre_intencion", "clave": "nombre_clave"}}
-
-Si NO hay coincidencia clara, respondé:
-{{"intencion": null, "clave": null}}
+Si NO hay coincidencia clara:
+{"intencion": null, "clave": null}
 
 Solo JSON, sin explicaciones."""
+        
+        prompt = build_optimized_message(
+            tarea=tarea,
+            datos_utiles=datos_utiles,
+            formato_respuesta=formato_respuesta
+        )
+        
+        # Validar y comprimir si es necesario
+        prompt, input_tokens = validate_and_compress(prompt)
+        
+        # Contar tokens antes de enviar
+        log_token_usage("detectar_clave_con_gemini", input_tokens, 0)
 
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=[prompt],
-            config=types.GenerateContentConfig(
-                thinking_config=types.ThinkingConfig(thinking_budget=0)
-            ),
+            config=get_optimized_config(),
         )
+        
+        response_text = response.text if hasattr(response, 'text') and response.text else ""
+        output_tokens = count_tokens(response_text) if response_text else 0
+        log_token_usage("detectar_clave_con_gemini", input_tokens, output_tokens)
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
         

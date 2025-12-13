@@ -103,6 +103,62 @@ class Chat:
         print(f"Datos de conversación: {self.conversation_data}")
         print(f"{'='*60}\n")
 
+    def es_saludo(self, texto: str) -> bool:
+        """
+        Detecta si el mensaje es un saludo.
+        
+        Args:
+            texto: Mensaje del usuario
+            
+        Returns:
+            True si es un saludo, False si no
+        """
+        texto_lower = texto.lower().strip()
+        
+        # Palabras y frases de saludo
+        saludos = [
+            "hola", "holi", "holis", "hola!", "holi!", "holis!",
+            "buenas", "buenos días", "buenos dias", "buen día", "buen dia",
+            "buenas tardes", "buenas noches",
+            "que tal", "qué tal", "que onda", "qué onda",
+            "como estas", "cómo estás", "como estas?", "cómo estás?",
+            "todo bien", "todo bien?", "qué hay", "que hay"
+        ]
+        
+        # Verificar si el texto es principalmente un saludo
+        for saludo in saludos:
+            if saludo in texto_lower:
+                # Si el texto es muy corto o es principalmente el saludo, es un saludo
+                if len(texto_lower) <= len(saludo) + 5 or texto_lower.startswith(saludo):
+                    return True
+        
+        return False
+    
+    def ya_se_saludo(self, numero: str) -> bool:
+        """
+        Verifica si ya se saludó en esta conversación.
+        
+        Args:
+            numero: Número del cliente
+            
+        Returns:
+            True si ya se saludó, False si no
+        """
+        estado = get_estado(numero)
+        return estado.get("context_data", {}).get("ya_se_saludo", False)
+    
+    def marcar_saludo(self, numero: str):
+        """
+        Marca que ya se saludó en esta conversación.
+        
+        Args:
+            numero: Número del cliente
+        """
+        estado = get_estado(numero)
+        if "context_data" not in estado:
+            estado["context_data"] = {}
+        estado["context_data"]["ya_se_saludo"] = True
+
     def funcion_ayuda(self, numero, texto):
         ayuda_texto = (
             "¡Hola hermano! 👋\n\n"
@@ -178,6 +234,20 @@ class Chat:
             return self.function_graph[texto_lower]['function'](numero, texto_lower)
 
         # ============================================
+        # PRIORIDAD 0: DETECTAR SALUDOS
+        # ============================================
+        # Si es un saludo y aún no se saludó, responder con saludo inicial
+        if self.es_saludo(texto_strip) and not self.ya_se_saludo(numero):
+            self.marcar_saludo(numero)
+            saludo_inicial = get_respuesta_predefinida("hola")
+            if saludo_inicial:
+                if self.id_chat:
+                    self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
+                return enviar_mensaje_whatsapp(numero, saludo_inicial)
+        
+        # Si es un saludo pero ya se saludó, continuar con el flujo normal (no responder solo con saludo)
+
+        # ============================================
         # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
         # ============================================
         # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
@@ -230,13 +300,19 @@ class Chat:
             link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
             link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
             
+            # Verificar si ya hay contexto de conversación
+            ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
+            
             # Generar respuesta con Gemini (tono cercano, variado, natural)
             respuesta = generar_respuesta_barberia(
                 intencion_critica if intencion_critica else "", 
                 texto_strip, 
                 info_relevante,
                 link_reserva,
-                link_maps
+                link_maps,
+                ya_hay_contexto,
+                self.chat_service,
+                self.id_chat
             )
             
             # PRIORIDAD 3: Reemplazar links en la respuesta final (porque Gemini nunca debe inventarlos)
@@ -264,7 +340,14 @@ class Chat:
         # ============================================
         # MENSAJE POR DEFECTO (si todo lo anterior falla)
         # ============================================
-        mensaje_default = "¡Bro! ¿Todo bien? 👋\n\nEscribime lo que necesites o escribí *ayuda* para ver las opciones."
+        # Solo usar mensaje genérico si no hay contexto de conversación
+        ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
+        if ya_hay_contexto:
+            # Si ya hay contexto, no usar saludo genérico
+            mensaje_default = "Escribime lo que necesites o escribí *ayuda* para ver las opciones."
+        else:
+            mensaje_default = "¡Bro! ¿Todo bien? 👋\n\nEscribime lo que necesites o escribí *ayuda* para ver las opciones."
+        
         if self.id_chat:
             self.chat_service.registrar_mensaje(self.id_chat, mensaje_default, es_cliente=False)
         return enviar_mensaje_whatsapp(numero, mensaje_default)
