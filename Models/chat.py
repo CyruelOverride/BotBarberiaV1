@@ -246,14 +246,39 @@ class Chat:
         # ============================================
         # PRIORIDAD 0: DETECTAR SALUDOS
         # ============================================
-        # Si es un saludo y aún no se saludó, responder con saludo inicial
+        # Si es un saludo y aún no se saludó, usar Gemini para saludo natural y variado
         if self.es_saludo(texto_strip) and not self.ya_se_saludo(numero):
             self.marcar_saludo(numero)
-            saludo_inicial = get_response("saludos", "saludo_inicial")
-            if saludo_inicial:
-                if self.id_chat:
-                    self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
-                return enviar_mensaje_whatsapp(numero, saludo_inicial)
+            # Usar Gemini para generar saludo natural y variado
+            try:
+                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+                link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
+                
+                # Generar saludo con Gemini (será variado y natural)
+                saludo_inicial = generar_respuesta_barberia(
+                    intencion="saludo_inicial",
+                    texto_usuario=texto_strip,
+                    info_relevante="",
+                    link_agenda=link_reserva,
+                    link_maps=link_maps,
+                    ya_hay_contexto=False,
+                    chat_service=self.chat_service,
+                    id_chat=self.id_chat,
+                    respuesta_predefinida=None
+                )
+                
+                if saludo_inicial:
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, saludo_inicial)
+            except Exception as e:
+                print(f"⚠️ Error generando saludo con Gemini: {e}")
+                # Fallback: usar respuesta predefinida si Gemini falla
+                saludo_inicial = get_response("saludos", "saludo_inicial")
+                if saludo_inicial:
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, saludo_inicial)
         
         # Si es un saludo pero ya se saludó, continuar con el flujo normal (no responder solo con saludo)
 

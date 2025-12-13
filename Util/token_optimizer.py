@@ -220,6 +220,10 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
     
     intencion_lower = intencion.lower()
     
+    # Saludo inicial
+    if intencion_lower == "saludo_inicial":
+        return f"{tono} Es el primer saludo del cliente. Saluda de forma cálida y natural, preguntando en qué puedes ayudar. Varía el saludo, no siempre digas lo mismo. Puedes mencionar que trabajas con cortes basados en visagismo, pero de forma natural y sin forzarlo. Sé breve y amigable."
+    
     # Visagismo
     if intencion_lower.startswith("visagismo_"):
         tipo_rostro = intencion.replace("visagismo_", "").replace("_", " ")
