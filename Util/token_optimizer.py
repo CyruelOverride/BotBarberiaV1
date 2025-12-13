@@ -118,7 +118,7 @@ def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
     Returns:
         String con instrucciones de tono
     """
-    base = "Responde con tono poco formal pero profesional. Usa 'Hermano' o 'Bro' máximo 1 vez por mensaje, solo cuando sea natural. Sé conversacional, directo y amigable. No exageres, sé natural. Ir al grano, no dar vueltas. Completo pero conciso."
+    base = "Responde con conversación cálida, como si estuvieses hablando con un amigo. No hables como robot ni como empresa, sé natural y humano. Usa 'Hermano', 'Bro' o 'Amigo' máximo 1 vez por mensaje, solo cuando sea natural. Usa frases claras como 'Te paso info', 'Miro mi agenda y te confirmo', 'Te anoto'. Sé conversacional, directo y amigable. Ir al grano, no dar vueltas. Completo pero conciso."
     if ya_hay_contexto:
         return base + " No uses saludos. Responde en contexto de la conversación anterior. Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas explicando sobre visagismo en general."
     return base + " Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas."

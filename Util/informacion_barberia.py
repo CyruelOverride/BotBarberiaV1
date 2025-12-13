@@ -76,7 +76,7 @@ PRODUCTOS DISPONIBLES (Valor: $500 cada uno):
 
 1. Cera modeladora brillo:
    - Para pelos más porosos y gruesos a los cuales les falta brillo y son muy opacos
-   - Ideal para peinar cortes más clásicos
+   - También ideal para peinar cortes más clásicos
 
 2. Cera en polvo:
    - Para darle más textura al pelo
@@ -89,6 +89,9 @@ PRODUCTOS DISPONIBLES (Valor: $500 cada uno):
 
 4. Cera mate brillo:
    - Similar a la cera mate pero aporta un poco más de brillo que la cera en polvo
+   - Efecto más cremoso que la cera en polvo
+   - También genera ese efecto opaco y de textura
+   - Ideal para pelos más lacios para generar efecto de textura
 
 BENEFICIOS:
 - Te ayudan a mantener la forma, volumen y textura del corte día a día
@@ -97,7 +100,13 @@ BENEFICIOS:
 CÓMO COMPRARLOS:
 - Reservar el producto para retirarlo en la barbería
 - Consultar stock
-- Derivar si quiere info más detallada de uso o precios"""
+- Derivar si quiere info más detallada de uso o precios
+
+FRASES POSIBLES:
+- "Bro, con esta cera te queda el corte igual que cuando salís de acá."
+- "La cera en polvo LC te da volumen sin que se note. ¿Querés que te separe una?"
+- "¿Querés que te muestre cómo se usa cuando vengas? Te lo explico en dos minutos."
+- "Te la puedo reservar y la pasás a buscar cuando vengas al corte. ¿Querés?""""
 
 
 def get_info_visagismo_redondo() -> str:
