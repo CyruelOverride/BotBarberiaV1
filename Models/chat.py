@@ -345,7 +345,7 @@ class Chat:
         # Paso 2: Si ya se saludó y está en paso "saludo_inicial", detectar respuesta positiva
         flujo_paso = self.get_flujo_paso(numero)
         if flujo_paso == "saludo_inicial" and self.ya_se_saludo(numero):
-            # PRIORIDAD: Si pide el link explícitamente, enviarlo directamente
+            # PRIORIDAD: Si pide el link explícitamente, enviarlo con Gemini pero FORZAR link
             if self.quiere_link(texto_strip):
                 self.set_flujo_paso(numero, "link_enviado")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
@@ -362,9 +362,9 @@ class Chat:
                 )
                 if respuesta:
                     respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    # FORZAR link siempre en respuestas de link_agenda
+                    # FORZAR link SIEMPRE al final si no está presente
                     if link_reserva and link_reserva not in respuesta:
-                        respuesta += f"\n\n{link_reserva}"
+                        respuesta = f"{respuesta}\n\n{link_reserva}"
                     if self.id_chat:
                         self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                     return enviar_mensaje_whatsapp(numero, respuesta)
@@ -390,7 +390,7 @@ class Chat:
         
         # Paso 3: Si está en paso "agendar_turno", detectar respuesta positiva y enviar link
         if flujo_paso == "agendar_turno":
-            # PRIORIDAD: Si pide el link explícitamente, enviarlo directamente
+            # PRIORIDAD: Si pide el link explícitamente, enviarlo con Gemini pero FORZAR link
             if self.quiere_link(texto_strip):
                 self.set_flujo_paso(numero, "link_enviado")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
@@ -407,9 +407,9 @@ class Chat:
                 )
                 if respuesta:
                     respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    # FORZAR link siempre en respuestas de link_agenda
+                    # FORZAR link SIEMPRE al final si no está presente
                     if link_reserva and link_reserva not in respuesta:
-                        respuesta += f"\n\n{link_reserva}"
+                        respuesta = f"{respuesta}\n\n{link_reserva}"
                     if self.id_chat:
                         self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                     return enviar_mensaje_whatsapp(numero, respuesta)
@@ -429,9 +429,9 @@ class Chat:
                 )
                 if respuesta:
                     respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    # FORZAR link siempre en respuestas de link_agenda
+                    # FORZAR link SIEMPRE al final si no está presente
                     if link_reserva and link_reserva not in respuesta:
-                        respuesta += f"\n\n{link_reserva}"
+                        respuesta = f"{respuesta}\n\n{link_reserva}"
                     if self.id_chat:
                         self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                     return enviar_mensaje_whatsapp(numero, respuesta)
@@ -465,7 +465,7 @@ class Chat:
         # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
         intencion_critica = detectar_intencion(texto_strip)
         
-        # DETECCIÓN ESPECIAL: Si el usuario pide el link explícitamente, enviarlo directamente
+        # DETECCIÓN ESPECIAL: Si el usuario pide el link explícitamente, enviarlo con Gemini pero FORZAR link
         if self.quiere_link(texto_strip):
             link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
             respuesta = generar_respuesta_barberia(
@@ -481,17 +481,19 @@ class Chat:
             )
             if respuesta:
                 respuesta = reemplazar_links(respuesta, link_reserva, "")
-                # FORZAR link siempre en respuestas de link_agenda
+                # FORZAR link SIEMPRE al final si no está presente
                 if link_reserva and link_reserva not in respuesta:
-                    respuesta += f"\n\n{link_reserva}"
+                    respuesta = f"{respuesta}\n\n{link_reserva}"
                 if self.id_chat:
                     self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                 return enviar_mensaje_whatsapp(numero, respuesta)
         
         if intencion_critica == "derivar_humano":
+            numero_derivacion = self.numero_derivacion if hasattr(self, 'numero_derivacion') and self.numero_derivacion else NUMERO_DERIVACION
             mensaje_derivacion = (
-                "Te voy a derivar con un asistente humano que te va a poder ayudar mejor. "
-                "En breve te contactará alguien de nuestro equipo."
+                f"Te voy a derivar con un asistente humano que te va a poder ayudar mejor. "
+                f"En breve te contactará alguien de nuestro equipo.\n\n"
+                f"Contacto: {numero_derivacion}"
             )
             if self.id_chat:
                 self.chat_service.registrar_mensaje(self.id_chat, mensaje_derivacion, es_cliente=False)

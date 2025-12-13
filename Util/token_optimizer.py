@@ -231,15 +231,15 @@ Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimo
     # Link agenda (flujo secuencial)
     if intencion_lower == "link_agenda":
         return f"""{tono}
-El cliente confirmó que quiere agendar. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este ESTILO como referencia (NUNCA copies literalmente):
+El cliente quiere agendar o pidió el link de la agenda. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este ESTILO como referencia (NUNCA copies literalmente):
 Ejemplos de estilo (NO copies estos):
 - "Perfecto bro, te dejo el link de la agenda así elegís día y hora. Cualquier duda escribime, estamos a las órdenes."
 - "Dale, acá tenés el link para que elijas cuándo venir. Si necesitás algo más, avisame."
 - "Listo, te paso el link de la agenda para que reserves. Cualquier cosa me escribís."
 
 Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimos. Mantén el tono positivo, menciona el link de agenda y ofrece ayuda. 
-IMPORTANTE: Si mencionas el link, DEBES incluirlo en tu respuesta: linkagenda.com
-El link debe aparecer en el mensaje final."""
+
+CRÍTICO: DEBES incluir el link linkagenda.com en tu respuesta. NO digas "te paso el link" o "ahí te lo paso" sin incluirlo. El link linkagenda.com DEBE aparecer en el mensaje final que generes."""
     
     # Post reserva (flujo secuencial)
     if intencion_lower == "post_reserva":
@@ -318,7 +318,7 @@ def build_modular_prompt(
     
     # 1.1. Si la intención requiere link y está disponible, agregarlo al prompt
     if link_agenda and intencion and intencion.lower() in ["turnos", "link_agenda"]:
-        parts.append(f"Link de agenda disponible: {link_agenda} - Si mencionas el link, inclúyelo en tu respuesta.")
+        parts.append(f"CRÍTICO: El link de agenda es {link_agenda}. DEBES incluirlo en tu respuesta. NO digas 'te paso el link' sin incluirlo. El link {link_agenda} DEBE aparecer en el mensaje final.")
     
     # 2. Extraer último mensaje del bot si existe (para contextualización)
     ultimo_mensaje_bot = None

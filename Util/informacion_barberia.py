@@ -5,7 +5,7 @@ Cada función devuelve solo el bloque de información necesario según la intenc
 
 # Variables configurables
 LINK_RESERVA = "linkagenda.com"  # Link de Weybook (configurar)
-NUMERO_DERIVACION = ""  # Número para derivar a humano (configurar)
+NUMERO_DERIVACION = "59891453663"  # Número para derivar a humano
 
 
 def get_info_servicio() -> str:
