@@ -118,10 +118,10 @@ def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
     Returns:
         String con instrucciones de tono
     """
-    base = "Responde con tono informal pero profesional, usando 'Hermano' o 'Bro' de forma natural. Sé conversacional, directo y amigable. Como hablar con un amigo, no robótico. Completo pero conciso."
+    base = "Responde con tono poco formal pero profesional. Usa 'Hermano' o 'Bro' máximo 1 vez por mensaje, solo cuando sea natural. Sé conversacional, directo y amigable. No exageres, sé natural. Ir al grano, no dar vueltas. Completo pero conciso."
     if ya_hay_contexto:
-        return base + " No uses saludos. Responde en contexto de la conversación anterior."
-    return base
+        return base + " No uses saludos. Responde en contexto de la conversación anterior. Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas explicando sobre visagismo en general."
+    return base + " Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas."
 
 
 def compress_history(history: List[Dict[str, str]], max_tokens: int = 300) -> str:
@@ -223,7 +223,7 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
     # Visagismo
     if intencion_lower.startswith("visagismo_"):
         tipo_rostro = intencion.replace("visagismo_", "").replace("_", " ")
-        return f"{tono} Cliente mencionó {tipo_rostro}. Da info directa. No preguntes de nuevo. Al final di 'te puedo hacer esto o contame si tenes una idea ya'."
+        return f"{tono} Cliente mencionó {tipo_rostro}. Si tienes información específica sobre este tipo de rostro, da info directa y concreta. Si NO tienes información específica (ej: menciona 'frentón' o algo no en la base de datos), invita directamente a la consulta diciendo algo como 'vení a la consulta y te asesoramos en persona'. No des vueltas explicando sobre visagismo en general. No repitas frases como 'el visagismo es clave'. Sé directo y conciso."
     
     # Turnos
     if intencion_lower == "turnos":
@@ -254,7 +254,7 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
         return f"{tono} Cliente pregunta por cortes. Responde breve sobre visagismo."
     
     # Default: prompt genérico corto
-    return f"{tono} Responde sobre {intencion}."
+    return f"{tono} Responde sobre {intencion}. Si no tienes información específica, invita directamente a la consulta en lugar de dar vueltas. Sé directo y conciso."
 
 
 def build_modular_prompt(
