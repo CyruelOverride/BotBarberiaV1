@@ -106,7 +106,7 @@ FRASES POSIBLES:
 - "Bro, con esta cera te queda el corte igual que cuando salís de acá."
 - "La cera en polvo LC te da volumen sin que se note. ¿Querés que te separe una?"
 - "¿Querés que te muestre cómo se usa cuando vengas? Te lo explico en dos minutos."
-- "Te la puedo reservar y la pasás a buscar cuando vengas al corte. ¿Querés?""""
+- "Te la puedo reservar y la pasás a buscar cuando vengas al corte. ¿Querés?" """
 
 
 def get_info_visagismo_redondo() -> str:
