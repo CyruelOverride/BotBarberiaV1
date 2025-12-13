@@ -283,7 +283,7 @@ def get_respuesta_predefinida(texto: str, usar_gemini: bool = False) -> Optional
 
 def reemplazar_links(respuesta: str, link_agenda: str = "", link_maps: str = "") -> str:
     """
-    Reemplaza placeholders de links en las respuestas.
+    Reemplaza placeholders de links en las respuestas y detecta menciones de links sin incluirlos.
     
     Args:
         respuesta: Texto de respuesta
@@ -293,7 +293,10 @@ def reemplazar_links(respuesta: str, link_agenda: str = "", link_maps: str = "")
     Returns:
         Respuesta con links reemplazados
     """
+    import re
+    
     if link_agenda:
+        # Reemplazar placeholders específicos
         respuesta = respuesta.replace("(link de agenda)", link_agenda)
         respuesta = respuesta.replace("(link de la agenda)", link_agenda)
         respuesta = respuesta.replace("acá te dejo el link:", f"acá te dejo el link:\n{link_agenda}")
@@ -302,6 +305,45 @@ def reemplazar_links(respuesta: str, link_agenda: str = "", link_maps: str = "")
         respuesta = respuesta.replace("acá tenés el link:", f"acá tenés el link:\n{link_agenda}")
         respuesta = respuesta.replace("Ahi te la paso", f"Ahi te la paso\n{link_agenda}")
         respuesta = respuesta.replace("A continuación te dejo el link:", f"A continuación te dejo el link:\n{link_agenda}")
+        
+        # Detectar menciones de link/agenda sin incluirlo (con regex para más flexibilidad)
+        # Patrones que indican que se menciona un link pero no está presente
+        patrones_mencion_link = [
+            r"te paso el link[:\s]*$",
+            r"te paso el link[:\s]+",
+            r"te paso link[:\s]*$",
+            r"te paso link[:\s]+",
+            r"te dejo el link[:\s]*$",
+            r"te dejo el link[:\s]+",
+            r"te dejo link[:\s]*$",
+            r"te dejo link[:\s]+",
+            r"ahí te paso[:\s]*$",
+            r"ahí te paso[:\s]+",
+            r"ahi te paso[:\s]*$",
+            r"ahi te paso[:\s]+",
+            r"te mando el link[:\s]*$",
+            r"te mando el link[:\s]+",
+            r"te mando link[:\s]*$",
+            r"te mando link[:\s]+",
+            r"link de la agenda[:\s]*$",
+            r"link de la agenda[:\s]+",
+            r"link de agenda[:\s]*$",
+            r"link de agenda[:\s]+",
+            r"el link[:\s]*$",
+            r"el link[:\s]+",
+        ]
+        
+        # Verificar si se menciona link pero no está presente en la respuesta
+        menciona_link = False
+        for patron in patrones_mencion_link:
+            if re.search(patron, respuesta, re.IGNORECASE):
+                menciona_link = True
+                break
+        
+        # Si menciona link pero no está presente, agregarlo
+        if menciona_link and link_agenda not in respuesta:
+            # Agregar el link al final o después de la mención
+            respuesta = respuesta.rstrip() + f"\n\n{link_agenda}"
     
     if link_maps:
         respuesta = respuesta.replace("(link de Google Maps)", link_maps)

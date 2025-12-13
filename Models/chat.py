@@ -347,8 +347,19 @@ class Chat:
                 )
                 if respuesta:
                     respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    if link_reserva and link_reserva not in respuesta:
-                        respuesta += f"\n\n{link_reserva}"
+                    # Asegurar que el link esté presente si se menciona
+                    import re
+                    if link_reserva:
+                        menciona_link = re.search(
+                            r"(link|agenda).*(?:te paso|te dejo|te mando|ahí|ahi)",
+                            respuesta,
+                            re.IGNORECASE
+                        )
+                        if menciona_link and link_reserva not in respuesta:
+                            respuesta += f"\n\n{link_reserva}"
+                        elif not menciona_link and link_reserva not in respuesta:
+                            # Para link_agenda siempre incluir el link
+                            respuesta += f"\n\n{link_reserva}"
                     if self.id_chat:
                         self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                     return enviar_mensaje_whatsapp(numero, respuesta)
@@ -511,8 +522,17 @@ class Chat:
             # Reemplazar links en la respuesta final
             respuesta_final = reemplazar_links(respuesta, link_reserva, link_maps)
             
+            # Detectar si menciona link/agenda pero no está presente (detección adicional)
+            import re
+            menciona_link_o_agenda = re.search(
+                r"(link|agenda|reserva|turno).*(?:te paso|te dejo|te mando|ahí|ahi)",
+                respuesta_final,
+                re.IGNORECASE
+            )
+            
             # Si es sobre turnos/agenda y no tiene link, agregarlo
-            if ("turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower) and link_reserva:
+            if (("turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower) and link_reserva) or \
+               (menciona_link_o_agenda and link_reserva and link_reserva not in respuesta_final):
                 if link_reserva not in respuesta_final:
                     respuesta_final += f"\n\n{link_reserva}"
             

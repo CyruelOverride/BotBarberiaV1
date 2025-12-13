@@ -125,7 +125,7 @@ def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
     Returns:
         String con instrucciones de tono
     """
-    base = "Responde con conversación cálida, como si estuvieses hablando con un amigo. No hables como robot ni como empresa, sé natural y humano. Usa 'Hermano', 'Bro' o 'Amigo' máximo 1 vez por mensaje, solo cuando sea natural. Usa frases claras como 'Te paso info', 'Miro mi agenda y te confirmo', 'Te anoto'. Sé conversacional, directo y amigable. Ir al grano, no dar vueltas. MENSAJES CORTOS (máximo 3-4 líneas). Completo pero conciso."
+    base = "Responde con conversación cálida, como si estuvieses hablando con un amigo. No hables como robot ni como empresa, sé natural y humano. Usa 'Hermano', 'Bro' o 'Amigo' máximo 1 vez por mensaje, solo cuando sea natural. Usa frases claras como 'Te paso info', 'Miro mi agenda y te confirmo', 'Te anoto'. Sé conversacional, directo y amigable. Ir al grano, no dar vueltas. MENSAJES CORTOS (máximo 3-4 líneas). Completo pero conciso. IMPORTANTE: NUNCA copies texto literal de ejemplos. Siempre reescribe con tus propias palabras manteniendo el estilo. Usa sinónimos, cambia el orden de las frases, pero mantén el mismo tono y mensaje."
     if ya_hay_contexto:
         return base + " No uses saludos pero puedes ser calido. Responde en contexto de la conversación anterior. Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas explicando sobre visagismo en general."
     return base + " Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas."
@@ -197,9 +197,13 @@ def _get_prompt_especifico(intencion: str, ya_hay_contexto: bool) -> str:
     # Saludo inicial
     if intencion_lower == "saludo_inicial":
         return f"""{tono} 
-Genera un saludo inicial MUY BREVE (máximo 2-3 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
-Ejemplo de estilo: "Buenas hermano, ¿todo bien? ¿Alguna vez te hiciste un corte en base a tu rostro?"
-Varía el saludo, usa diferentes palabras pero mantén el tono cálido, personal y la pregunta sobre cortes en base al rostro. Sé directo y natural."""
+Genera un saludo inicial MUY BREVE (máximo 2-3 líneas) siguiendo este ESTILO como referencia (NUNCA copies literalmente):
+Ejemplos de estilo (NO copies estos):
+- "Buenas hermano, ¿todo bien? ¿Alguna vez te hiciste un corte en base a tu rostro?"
+- "Hola bro, ¿cómo andás? ¿Probaste alguna vez un corte pensado para tu tipo de cara?"
+- "Buenas, ¿todo bien? ¿Conocés el visagismo? Es cortar según tu estructura facial."
+
+Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimos. Mantén el tono cálido, personal y la pregunta sobre cortes en base al rostro. Sé directo y natural."""
     
     # Visagismo
     if intencion_lower.startswith("visagismo_"):
@@ -208,28 +212,45 @@ Varía el saludo, usa diferentes palabras pero mantén el tono cálido, personal
     
     # Turnos
     if intencion_lower == "turnos":
-        return f"{tono} Cliente pregunta por turnos. Responde breve con link de agenda."
+        return f"""{tono} 
+Cliente pregunta por turnos. Responde breve mencionando el link de agenda.
+Si mencionas el link, DEBES incluirlo en tu respuesta: linkagenda.com
+El link debe aparecer en el mensaje final."""
     
     # Agendar turno (flujo secuencial)
     if intencion_lower == "agendar_turno":
         return f"""{tono}
-El cliente respondió positivamente al saludo inicial. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
-Ejemplo de estilo: "Buenísimo bro. Agendamos un turno para que pruebes por primera vez un corte en base a tu rostro, te parece?"
-Varía las palabras pero mantén el tono cálido, la propuesta de agendar turno y la mención al corte en base al rostro."""
+El cliente respondió positivamente al saludo inicial. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este ESTILO como referencia (NUNCA copies literalmente):
+Ejemplos de estilo (NO copies estos):
+- "Buenísimo bro. Agendamos un turno para que pruebes por primera vez un corte en base a tu rostro, te parece?"
+- "Dale, perfecto. Te agendo un turno así probás un corte pensado para tu cara, ¿qué te parece?"
+- "Genial. Vamos a agendarte para que conozcas cómo trabajamos con visagismo, ¿te va?"
+
+Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimos. Mantén el tono cálido, la propuesta de agendar turno y la mención al corte en base al rostro."""
     
     # Link agenda (flujo secuencial)
     if intencion_lower == "link_agenda":
         return f"""{tono}
-El cliente confirmó que quiere agendar. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
-Ejemplo de estilo: "Perfecto bro, te dejo el link de la agenda así elegís día y hora. Cualquier duda escribime, estamos a las órdenes."
-Varía las palabras pero mantén el tono positivo, menciona el link de agenda y ofrece ayuda. El link se agregará automáticamente."""
+El cliente confirmó que quiere agendar. Genera una respuesta breve (máximo 2-3 líneas) siguiendo este ESTILO como referencia (NUNCA copies literalmente):
+Ejemplos de estilo (NO copies estos):
+- "Perfecto bro, te dejo el link de la agenda así elegís día y hora. Cualquier duda escribime, estamos a las órdenes."
+- "Dale, acá tenés el link para que elijas cuándo venir. Si necesitás algo más, avisame."
+- "Listo, te paso el link de la agenda para que reserves. Cualquier cosa me escribís."
+
+Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimos. Mantén el tono positivo, menciona el link de agenda y ofrece ayuda. 
+IMPORTANTE: Si mencionas el link, DEBES incluirlo en tu respuesta: linkagenda.com
+El link debe aparecer en el mensaje final."""
     
     # Post reserva (flujo secuencial)
     if intencion_lower == "post_reserva":
         return f"""{tono}
-El cliente confirmó que agendó. Genera una respuesta breve pero importante (máximo 4-5 líneas) siguiendo este estilo como EJEMPLO (NO lo copies literal):
-Ejemplo de estilo: "Bro, una cosa importante: como trabajamos solo por agenda, si por algún motivo no podés venir, avisá o cancelá el turno con tiempo. Así ese horario se lo podemos dar a otro cliente que también necesita ser asesorado y cortarse. Gracias por entender hermano."
-Varía las palabras pero mantén el tono amigable, la importancia de avisar/cancelar con tiempo, y el agradecimiento."""
+El cliente confirmó que agendó. Genera una respuesta breve pero importante (máximo 4-5 líneas) siguiendo este ESTILO como referencia (NUNCA copies literalmente):
+Ejemplos de estilo (NO copies estos):
+- "Bro, una cosa importante: como trabajamos solo por agenda, si por algún motivo no podés venir, avisá o cancelá el turno con tiempo. Así ese horario se lo podemos dar a otro cliente que también necesita ser asesorado y cortarse. Gracias por entender hermano."
+- "Amigo, algo importante: trabajamos solo con turnos, así que si no podés venir, avisame o cancelá con anticipación. Así liberamos el horario para otro cliente. Gracias por la buena onda."
+- "Bro, te cuento algo: como manejamos todo por agenda, si surge algo y no podés venir, cancelá el turno con tiempo. Así otro cliente puede usar ese horario. Gracias por entender."
+
+Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimos. Mantén el tono amigable, la importancia de avisar/cancelar con tiempo, y el agradecimiento."""
     
     # Precios
     if intencion_lower == "precios":
@@ -237,7 +258,13 @@ Varía las palabras pero mantén el tono amigable, la importancia de avisar/canc
     
     # Ubicación
     if intencion_lower == "ubicacion":
-        return f"{tono} Cliente pregunta ubicación. Responde breve con dirección."
+        return f"""{tono} 
+Cliente pregunta ubicación. Responde EXACTAMENTE con este formato (no varíes el formato):
+"Estamos en Juan José de Amézaga 2241.
+(https://maps.app.goo.gl/uaJPmJrxUJr5wZE87)
+Ahi te dejo la ubicación exacta."
+
+Usa este formato exacto, no lo cambies."""
     
     # Barba
     if intencion_lower == "barba":
@@ -265,7 +292,8 @@ def build_modular_prompt(
     info_relevante: str = "",
     historial_comprimido: str = "",
     ultimos_mensajes: List[Dict[str, Any]] = None,
-    ya_hay_contexto: bool = False
+    ya_hay_contexto: bool = False,
+    link_agenda: str = ""
 ) -> str:
     """
     Construye un prompt modular y optimizado según la intención.
@@ -287,6 +315,10 @@ def build_modular_prompt(
     # 1. Prompt específico según intención (más corto que tarea genérica)
     prompt_especifico = _get_prompt_especifico(intencion, ya_hay_contexto)
     parts.append(prompt_especifico)
+    
+    # 1.1. Si la intención requiere link y está disponible, agregarlo al prompt
+    if link_agenda and intencion.lower() in ["turnos", "link_agenda"]:
+        parts.append(f"Link de agenda disponible: {link_agenda} - Si mencionas el link, inclúyelo en tu respuesta.")
     
     # 2. Extraer último mensaje del bot si existe (para contextualización)
     ultimo_mensaje_bot = None

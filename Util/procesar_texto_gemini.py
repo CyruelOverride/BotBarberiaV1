@@ -208,7 +208,8 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
             info_relevante=info_relevante,
             historial_comprimido=historial_comprimido,
             ultimos_mensajes=ultimos_mensajes,
-            ya_hay_contexto=ya_hay_contexto
+            ya_hay_contexto=ya_hay_contexto,
+            link_agenda=link_agenda
         )
         
         # Validar y comprimir si es necesario
@@ -241,7 +242,13 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
             response_text = re.sub(r'```[a-z]*\n?', '', response_text)
             response_text = re.sub(r'```', '', response_text)
         
-        return response_text.strip()
+        response_text = response_text.strip()
+        
+        # Aplicar reemplazo de links si se proporcionaron
+        if link_agenda or link_maps:
+            response_text = reemplazar_links(response_text, link_agenda, link_maps)
+        
+        return response_text
         
     except Exception as e:
         print(f"⚠️ Error en generar_respuesta_barberia: {e}")
