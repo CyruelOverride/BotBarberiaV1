@@ -317,7 +317,7 @@ def build_modular_prompt(
     parts.append(prompt_especifico)
     
     # 1.1. Si la intención requiere link y está disponible, agregarlo al prompt
-    if link_agenda and intencion.lower() in ["turnos", "link_agenda"]:
+    if link_agenda and intencion and intencion.lower() in ["turnos", "link_agenda"]:
         parts.append(f"Link de agenda disponible: {link_agenda} - Si mencionas el link, inclúyelo en tu respuesta.")
     
     # 2. Extraer último mensaje del bot si existe (para contextualización)

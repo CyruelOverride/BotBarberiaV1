@@ -94,6 +94,12 @@ def _construir_respuesta_por_intencion(intencion: str, info_relevante: str, text
     Returns:
         Respuesta construida o None si no se puede construir
     """
+    if not intencion or not texto_usuario:
+        return None
+    
+    if not intencion or not texto_usuario:
+        return None
+    
     texto_lower = texto_usuario.lower()
     
     # Respuestas específicas según intención
@@ -103,12 +109,13 @@ def _construir_respuesta_por_intencion(intencion: str, info_relevante: str, text
         
         # Extraer recomendaciones principales de la info
         recomendaciones = []
-        if "volumen arriba" in info_relevante.lower() or "pompadour" in info_relevante.lower():
-            recomendaciones.append("volumen arriba")
-        if "fade" in info_relevante.lower() or "degradado" in info_relevante.lower():
-            recomendaciones.append("degradados")
-        if "barba" in info_relevante.lower():
-            recomendaciones.append("barba")
+        if info_relevante:
+            if "volumen arriba" in info_relevante.lower() or "pompadour" in info_relevante.lower():
+                recomendaciones.append("volumen arriba")
+            if "fade" in info_relevante.lower() or "degradado" in info_relevante.lower():
+                recomendaciones.append("degradados")
+            if "barba" in info_relevante.lower():
+                recomendaciones.append("barba")
         
         respuesta = f"Bro, para {tipo_rostro} te puedo hacer: "
         if recomendaciones:
