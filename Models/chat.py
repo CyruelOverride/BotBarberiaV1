@@ -514,6 +514,31 @@ class Chat:
         except Exception as e:
             print(f"⚠️ Error en sistema de respuestas predefinidas: {e}")
             manejar_error(e, texto_strip, numero)
+            # Intentar flujo automático como fallback
+            try:
+                from Util.flujo_automatico import procesar_flujo_automatico
+                from Util.intents import detectar_intencion
+                from Util.informacion_barberia import get_info_por_intencion
+                
+                intencion_fallback = detectar_intencion(texto_strip)
+                info_relevante_fallback = get_info_por_intencion(intencion_fallback) if intencion_fallback else ""
+                
+                respuesta_automatica = procesar_flujo_automatico(
+                    texto_usuario=texto_strip,
+                    intencion=intencion_fallback if intencion_fallback else "",
+                    info_relevante=info_relevante_fallback
+                )
+                
+                if respuesta_automatica:
+                    print(f"✅ Flujo automático exitoso como fallback después de error en respuestas predefinidas")
+                    link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+                    link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
+                    respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, respuesta_final)
+            except Exception as e2:
+                print(f"⚠️ Error en flujo automático fallback: {e2}")
         
         # Si hay respuesta predefinida con keywords directos, usarla (10% de los casos)
         if respuesta_predefinida:
@@ -649,8 +674,37 @@ class Chat:
         except Exception as e:
             print(f"⚠️ Error al generar respuesta con Gemini: {e}")
             manejar_error(e, texto_strip, numero)
-            # Fallback: usar mensaje por defecto
-            mensaje_default = "Disculpá, estoy teniendo problemas técnicos. ¿Querés que te derive con alguien del equipo?"
+            
+            # FALLBACK 1: Intentar flujo automático antes de enviar error
+            try:
+                from Util.flujo_automatico import procesar_flujo_automatico
+                from Util.intents import detectar_intencion
+                from Util.informacion_barberia import get_info_por_intencion
+                
+                intencion_fallback = detectar_intencion(texto_strip)
+                info_relevante_fallback = get_info_por_intencion(intencion_fallback) if intencion_fallback else ""
+                
+                respuesta_automatica = procesar_flujo_automatico(
+                    texto_usuario=texto_strip,
+                    intencion=intencion_fallback if intencion_fallback else "",
+                    info_relevante=info_relevante_fallback
+                )
+                
+                if respuesta_automatica:
+                    print(f"✅ Flujo automático exitoso como fallback después de error")
+                    respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
+                    if self.id_chat:
+                        self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
+                    return enviar_mensaje_whatsapp(numero, respuesta_final)
+            except Exception as e2:
+                print(f"⚠️ Error en flujo automático fallback: {e2}")
+            
+            # FALLBACK 2: Si flujo automático falla, enviar mensaje de error con número directo
+            numero_derivacion = self.numero_derivacion if hasattr(self, 'numero_derivacion') and self.numero_derivacion else NUMERO_DERIVACION
+            mensaje_default = (
+                f"Disculpá, estoy teniendo problemas técnicos. "
+                f"Contactá directamente con nuestro equipo:\n\n{numero_derivacion}"
+            )
             if self.id_chat:
                 self.chat_service.registrar_mensaje(self.id_chat, mensaje_default, es_cliente=False)
             return enviar_mensaje_whatsapp(numero, mensaje_default)
