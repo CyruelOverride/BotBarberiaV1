@@ -277,9 +277,9 @@ class Chat:
         if not self.id_chat:
             self.id_chat = f"chat_{numero}"
 
-        # Registrar mensaje del cliente en BD
-        if self.id_chat:
-            self.chat_service.registrar_mensaje(self.id_chat, texto_strip, es_cliente=True)
+        # Comentado: No persistir mensajes en BD para testing
+        # if self.id_chat:
+        #     self.chat_service.registrar_mensaje(self.id_chat, texto_strip, es_cliente=True)
         
         # Llamar al router para procesar el mensaje con captura de errores
         try:
@@ -449,8 +449,9 @@ class Chat:
                 # FORZAR link SIEMPRE al final si no está presente
                 if link_reserva and link_reserva not in respuesta:
                     respuesta = f"{respuesta}\n\n{link_reserva}"
-                if self.id_chat:
-                    self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+                # Comentado: No persistir mensajes en BD para testing
+                # if self.id_chat:
+                #     self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                 return enviar_mensaje_whatsapp(numero, respuesta)
         
         # ============================================
@@ -509,8 +510,9 @@ class Chat:
                     link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
                     link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
                     respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
+                    # Comentado: No persistir mensajes en BD para testing
+                    # if self.id_chat:
+                    #     self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
                     return enviar_mensaje_whatsapp(numero, respuesta_final)
             except Exception as e2:
                 print(f"⚠️ Error en flujo automático fallback: {e2}")
@@ -669,8 +671,9 @@ class Chat:
                 if respuesta_automatica:
                     print(f"✅ Flujo automático exitoso como fallback después de error")
                     respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
+                    # Comentado: No persistir mensajes en BD para testing
+                    # if self.id_chat:
+                    #     self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
                     return enviar_mensaje_whatsapp(numero, respuesta_final)
             except Exception as e2:
                 print(f"⚠️ Error en flujo automático fallback: {e2}")
@@ -778,8 +781,9 @@ class Chat:
             print(f"⏳ Esperando {delay:.1f} segundos antes de enviar respuesta...")
             time.sleep(delay)
         
-        if self.id_chat:
-            self.chat_service.registrar_mensaje(self.id_chat, mensaje, es_cliente=False)
+        # Comentado: No persistir mensajes en BD para testing
+        # if self.id_chat:
+        #     self.chat_service.registrar_mensaje(self.id_chat, mensaje, es_cliente=False)
         return enviar_mensaje_whatsapp(numero, mensaje)
 
     # ============================================

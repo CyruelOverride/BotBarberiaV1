@@ -188,8 +188,9 @@ async def receive(request: Request):
             chat_bd = chat_service.obtener_o_crear_chat(id_cliente, numero)
             id_chat = chat_bd.id_chat
             
-            if tipo in ("text", "interactive"):
-                chat_service.registrar_mensaje(id_chat, mensaje, es_cliente=True)
+            # Comentado: No persistir mensajes en BD para testing
+            # if tipo in ("text", "interactive"):
+            #     chat_service.registrar_mensaje(id_chat, mensaje, es_cliente=True)
             
             chat = Chat(
                 id_chat=id_chat,
