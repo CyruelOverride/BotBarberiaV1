@@ -28,26 +28,27 @@ class Producto(SQLModel, table=True):
     id_categoria: Optional[int] = Field(default=None, foreign_key="categoria.id_categoria")
 
 
-class Pedido(SQLModel, table=True):
-    idpedido: Optional[int] = Field(default=None, primary_key=True)
-    id_chat: str
-    id_cliente: str
-    id_repartidor: Optional[int] = None
-    direccion: str
-    latitud: Optional[str] = None
-    longitud: Optional[str] = None
-    estado: str = Field(default="en_carrito")
-    fecha_confirmacion: Optional[datetime] = None
-    zona: Optional[str] = None 
-    codigo_verificacion: Optional[int] = None  
-    id_tanda: Optional[int] = None 
+# Modelos de delivery - comentados porque no son relevantes para el flujo de barbería
+# class Pedido(SQLModel, table=True):
+#     idpedido: Optional[int] = Field(default=None, primary_key=True)
+#     id_chat: str
+#     id_cliente: str
+#     id_repartidor: Optional[int] = None
+#     direccion: str
+#     latitud: Optional[str] = None
+#     longitud: Optional[str] = None
+#     estado: str = Field(default="en_carrito")
+#     fecha_confirmacion: Optional[datetime] = None
+#     zona: Optional[str] = None 
+#     codigo_verificacion: Optional[int] = None  
+#     id_tanda: Optional[int] = None 
 
 
-class DetallePedido(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    id_pedido: int = Field(foreign_key="pedido.idpedido")
-    id_producto: int = Field(foreign_key="producto.idproducto")
-    cantidad: int
+# class DetallePedido(SQLModel, table=True):
+#     id: Optional[int] = Field(default=None, primary_key=True)
+#     id_pedido: int = Field(foreign_key="pedido.idpedido")
+#     id_producto: int = Field(foreign_key="producto.idproducto")
+#     cantidad: int
 
 
 class Cliente(SQLModel, table=True):
@@ -57,20 +58,21 @@ class Cliente(SQLModel, table=True):
     telefono: str
 
 
-class Repartidor(SQLModel, table=True):
-    idrepartidor: Optional[int] = Field(default=None, primary_key=True)
-    nombre: str
-    apellido: str
-    telefono: str
-    cantidadkmrecorridos: float = Field(default=0.0)
-    zonaasignada: Optional[str] = None
+# Modelo de repartidor - comentado porque no es relevante para el flujo de barbería
+# class Repartidor(SQLModel, table=True):
+#     idrepartidor: Optional[int] = Field(default=None, primary_key=True)
+#     nombre: str
+#     apellido: str
+#     telefono: str
+#     cantidadkmrecorridos: float = Field(default=0.0)
+#     zonaasignada: Optional[str] = None
 
 
 class Chat(SQLModel, table=True):
     idchat: Optional[int] = Field(default=None, primary_key=True)
     id_chat: str = Field(unique=True, index=True)
     id_cliente: int = Field(foreign_key="cliente.idcliente")
-    id_repartidor: Optional[int] = Field(default=None, foreign_key="repartidor.idrepartidor")
+    # id_repartidor: Optional[int] = Field(default=None, foreign_key="repartidor.idrepartidor")  # Comentado - no relevante para barbería
     fecha_creacion: Optional[datetime] = Field(default_factory=datetime.now)
 
 
@@ -82,15 +84,17 @@ class Mensaje(SQLModel, table=True):
     fecha_envio: Optional[datetime] = Field(default_factory=datetime.now)
 
 
-class Calificaciones(SQLModel, table=True):
-    id_calificacion: Optional[int] = Field(default=None, primary_key=True)
-    estrellas: int = Field(ge=1, le=5)  
+# Modelos de calificaciones - comentados porque están atados al sistema de delivery
+# Podrían adaptarse para calificar servicios de barbería en el futuro
+# class Calificaciones(SQLModel, table=True):
+#     id_calificacion: Optional[int] = Field(default=None, primary_key=True)
+#     estrellas: int = Field(ge=1, le=5)  
 
 
-class ClientesCalificaciones(SQLModel, table=True):
-    id_clientecalificaciones: Optional[int] = Field(default=None, primary_key=True)
-    id_calificacion: int = Field(foreign_key="calificacion.id_calificacion")
-    id_cliente: int = Field(foreign_key="cliente.idcliente")
+# class ClientesCalificaciones(SQLModel, table=True):
+#     id_clientecalificaciones: Optional[int] = Field(default=None, primary_key=True)
+#     id_calificacion: int = Field(foreign_key="calificacion.id_calificacion")
+#     id_cliente: int = Field(foreign_key="cliente.idcliente")
 
 
 def get_db_session():

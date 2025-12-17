@@ -1,5 +1,5 @@
 
-from Util.database import get_db_session, Categoria, Producto, Repartidor
+from Util.database import get_db_session, Categoria, Producto
 from sqlmodel import select
 
 def seed_categorias(db):
@@ -103,32 +103,6 @@ def seed_productos(db, categorias):
     return productos_creados
 
 
-def seed_repartidores(db):
-    repartidores_data = [
-        {"nombre": "Juan", "apellido": "Pérez", "telefono": "+59899123456", "zonaasignada": "noroeste", "cantidadkmrecorridos": 0.0},
-        {"nombre": "María", "apellido": "González", "telefono": "+59899234567", "zonaasignada": "noreste", "cantidadkmrecorridos": 0.0},
-        {"nombre": "Carlos", "apellido": "Rodríguez", "telefono": "+59899345678", "zonaasignada": "suroeste", "cantidadkmrecorridos": 0.0},
-        {"nombre": "Ana", "apellido": "Martínez", "telefono": "+59899456789", "zonaasignada": "sureste", "cantidadkmrecorridos": 0.0},
-        {"nombre": "Luis", "apellido": "Fernández", "telefono": "+59899567890", "zonaasignada": "noroeste", "cantidadkmrecorridos": 0.0},
-        {"nombre": "Laura", "apellido": "López", "telefono": "+59899678901", "zonaasignada": "noreste", "cantidadkmrecorridos": 0.0},
-    ]
-    
-    repartidores_creados = 0
-    for rep_data in repartidores_data:
-        # Verificar si ya existe (por teléfono)
-        stmt = select(Repartidor).where(Repartidor.telefono == rep_data["telefono"])
-        repartidor_existente = db.exec(stmt).first()
-        
-        if not repartidor_existente:
-            repartidor = Repartidor(**rep_data)
-            db.add(repartidor)
-            repartidores_creados += 1
-    
-    db.commit()
-    print(f"✅ {repartidores_creados} repartidores creados")
-    return repartidores_creados
-
-
 def main():
     print("🌱 Iniciando seeding de la base de datos...")
     print("=" * 60)
@@ -142,14 +116,10 @@ def main():
         print("\n🍔 Creando productos...")
         productos_creados = seed_productos(db, categorias)
         
-        print("\n🚴 Creando repartidores...")
-        repartidores_creados = seed_repartidores(db)
-        
         print("\n" + "=" * 60)
         print("✅ Seeding completado exitosamente!")
         print(f"   - Categorías: {len(categorias)}")
         print(f"   - Productos: {productos_creados} nuevos")
-        print(f"   - Repartidores: {repartidores_creados} nuevos")
         print("=" * 60)
         
     except Exception as e:

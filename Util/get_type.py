@@ -69,10 +69,13 @@ def get_type(message):
             print(f"📋 Stack trace completo:")
             traceback.print_exc()
             
-            if "429" in error_msg or "Too Many Requests" in error_msg:
-                contenido = "⚠️ Se excedió el límite de solicitudes. Por favor, espera unos momentos y envía un mensaje de texto en su lugar."
+            # Detectar errores de límite de tokens/quota
+            if ("429" in error_msg or "Too Many Requests" in error_msg or 
+                "quota" in error_msg.lower() or "limit" in error_msg.lower() or
+                "resource_exhausted" in error_msg.lower() or "rate limit" in error_msg.lower()):
+                contenido = "Bro mandame mensaje ahora no puedo escuchar"
             else:
-                contenido = "No pude procesar el audio. Por favor, envía un mensaje de texto."
+                contenido = "Bro mandame mensaje ahora no puedo escuchar"
 
     else:
         print(f"⚠️ Tipo de mensaje no manejado: {tipo}")

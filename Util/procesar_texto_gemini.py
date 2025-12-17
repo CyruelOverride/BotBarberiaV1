@@ -99,6 +99,8 @@ Si es sobre reservas/turnos/citas, respondé con JSON:
 Si NO es sobre reservas/turnos/citas, respondé con JSON:
 {{"es_consulta_reserva": false, "respuesta_acorde": ""}}
 
+IMPORTANTE: Si generas una respuesta, evita signos de exclamación (¡!), puntos excesivos y tildes poco comunes. Escribe natural, como hablarías en persona.
+
 Solo JSON, sin explicaciones."""
         
         # Validar y comprimir si es necesario
@@ -231,7 +233,9 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         
         if not response_text:
             print("⚠️ Respuesta vacía de Gemini en generar_respuesta_barberia")
-            return "Disculpá, no pude generar una respuesta en este momento. ¿Querés que te derive con alguien del equipo?"
+            # No enviar mensaje al cliente, solo notificar al equipo
+            manejar_error(Exception("Respuesta vacía de Gemini"), texto_usuario, None, "Respuesta vacía de Gemini")
+            return None  # Retornar None para que no se envíe nada
         
         # Limpiar respuesta: remover markdown y espacios extra
         response_text = response_text.strip()
@@ -252,5 +256,7 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         
     except Exception as e:
         print(f"⚠️ Error en generar_respuesta_barberia: {e}")
-        manejar_error(e, texto_usuario, None)
-        return "Disculpá, estoy teniendo problemas técnicos. ¿Querés que te derive con alguien del equipo?"
+        # Notificar al equipo pero no enviar mensaje técnico al cliente
+        manejar_error(e, texto_usuario, None, "Error en generar_respuesta_barberia")
+        # Retornar None para que no se envíe nada al cliente
+        return None

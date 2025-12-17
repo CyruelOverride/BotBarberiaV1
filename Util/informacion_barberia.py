@@ -39,13 +39,15 @@ Mientras esperás o terminás tu corte, podés tomarte un café tranquilo, charl
 Queremos que te sientas como en casa."""
 
 
-def get_info_precios() -> str:
-    """Información sobre precios."""
-    return """PRECIOS:
-
-Los precios varían según el tipo de corte y servicio. Te paso la lista o te asesoro según lo que estés buscando.
-
-Para conocer los precios exactos, podés consultar cuando reserves tu turno o preguntarme por un servicio específico."""
+def get_info_precios(texto_usuario: str = "") -> str:
+    """
+    Información sobre precios usando el util de precios.
+    
+    Args:
+        texto_usuario: Texto del mensaje del usuario (opcional, para buscar servicio específico)
+    """
+    from Util.precios_barberia import obtener_info_precios_para_prompt
+    return obtener_info_precios_para_prompt(texto_usuario)
 
 
 def get_info_barba() -> str:
@@ -262,12 +264,13 @@ A partir de eso se decide qué corte va mejor con la fisonomía y el estilo pers
 Trabajamos solo con turnos para que no tengas que esperar: llegás y te atendemos."""
 
 
-def get_info_por_intencion(intencion: str) -> str:
+def get_info_por_intencion(intencion: str, texto_usuario: str = "") -> str:
     """
     Obtiene la información relevante según la intención detectada.
     
     Args:
         intencion: Nombre de la intención
+        texto_usuario: Texto del mensaje del usuario (opcional, usado para precios)
         
     Returns:
         String con la información relevante o string vacío si no hay match
@@ -276,7 +279,7 @@ def get_info_por_intencion(intencion: str) -> str:
         "turnos": get_info_servicio,
         "cortes": get_info_cortes,
         "diferencial": get_info_diferencial,
-        "precios": get_info_precios,
+        "precios": lambda: get_info_precios(texto_usuario),
         "barba": get_info_barba,
         "productos_lc": get_info_productos_lc,
         "visagismo_redondo": get_info_visagismo_redondo,

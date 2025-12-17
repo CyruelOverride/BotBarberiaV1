@@ -125,7 +125,7 @@ def _get_instrucciones_tono(ya_hay_contexto: bool = False) -> str:
     Returns:
         String con instrucciones de tono
     """
-    base = "Responde con conversación cálida, como si estuvieses hablando con un amigo. No hables como robot ni como empresa, sé natural y humano. Usa 'Hermano', 'Bro' o 'Amigo' máximo 1 vez por mensaje, solo cuando sea natural. Usa frases claras como 'Te paso info', 'Miro mi agenda y te confirmo', 'Te anoto'. Sé conversacional, directo y amigable. Ir al grano, no dar vueltas. MENSAJES CORTOS (máximo 3-4 líneas). Completo pero conciso. IMPORTANTE: NUNCA copies texto literal de ejemplos. Siempre reescribe con tus propias palabras manteniendo el estilo. Usa sinónimos, cambia el orden de las frases, pero mantén el mismo tono y mensaje."
+    base = "Responde como un barbero hablando con un cliente, relajado y natural. No hables formal ni como empresa. Usa 'bro' o 'hermano' ocasionalmente, solo cuando fluya natural. PUNTUACIÓN: Evita signos de exclamación (¡!) - solo úsalos muy ocasionalmente si realmente es necesario. Evita puntos excesivos al final de frases. No uses tildes poco comunes o formales. Escribe como hablarías en persona: natural, sin sobre-puntuación. Hablá como hablarías en persona: directo, claro, sin vueltas. Frases cortas y al punto. MENSAJES CORTOS (máximo 3-4 líneas). Completo pero conciso. IMPORTANTE: NUNCA copies texto literal de ejemplos. Siempre reescribe con tus propias palabras manteniendo el estilo. Usa sinónimos, cambia el orden de las frases, pero mantén el mismo tono y mensaje."
     if ya_hay_contexto:
         return base + " No uses saludos pero puedes ser calido. Responde en contexto de la conversación anterior. Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas explicando sobre visagismo en general."
     return base + " Si no tienes información específica sobre lo que pregunta, invita directamente a la consulta en lugar de dar vueltas."
@@ -213,9 +213,7 @@ Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimo
     # Turnos
     if intencion_lower == "turnos":
         return f"""{tono} 
-Cliente pregunta por turnos. Responde breve mencionando el link de agenda.
-Si mencionas el link, DEBES incluirlo en tu respuesta: linkagenda.com
-El link debe aparecer en el mensaje final."""
+Cliente pregunta por turnos. Estado: consulta_turnos. Responde breve mencionando el link de agenda."""
     
     # Agendar turno (flujo secuencial)
     if intencion_lower == "agendar_turno":
@@ -254,7 +252,8 @@ Genera una respuesta ÚNICA. Varía las palabras, cambia el orden, usa sinónimo
     
     # Precios
     if intencion_lower == "precios":
-        return f"{tono} Cliente pregunta precios. Responde con lista breve."
+        return f"""{tono} 
+Cliente pregunta precios. Estado: consulta_precios. Usa los precios que están en la información proporcionada."""
     
     # Ubicación
     if intencion_lower == "ubicacion":
@@ -283,7 +282,8 @@ Usa este formato exacto, no lo cambies."""
         return f"{tono} Cliente pregunta por cortes. Responde breve sobre visagismo."
     
     # Default: prompt genérico corto
-    return f"{tono} Responde sobre {intencion}. Si no tienes información específica, invita directamente a la consulta en lugar de dar vueltas. Sé directo y conciso."
+    return f"""{tono} 
+Responde sobre {intencion}. Estado: consulta_general. Si no tienes información específica, invita directamente a la consulta. Sé directo y conciso."""
 
 
 def build_modular_prompt(

@@ -1,14 +1,13 @@
 from typing import Any, Optional, Dict, Callable
 from datetime import datetime
 import re
+import time
+import random
 from Services.ChatService import ChatService
 from Services.ClienteService import ClienteService
-from Services.RepartidorService import RepartidorService
 from Util.database import get_db_session
 from whatsapp_api import enviar_mensaje_whatsapp
 from Util.estado import get_estado, reset_estado, get_waiting_for, set_waiting_for, clear_waiting_for, get_citas, add_cita, clear_citas
-from Util.repartidor_util import handle_interactive
-from Util.calificacion_util import manejar_calificacion
 from Util.procesar_texto_gemini import detectar_consulta_reserva, generar_respuesta_barberia
 from Util.intents import detectar_intencion
 from Util.informacion_barberia import get_info_por_intencion, LINK_RESERVA, NUMERO_DERIVACION
@@ -26,10 +25,9 @@ class Chat:
     # Ejemplo: numero_derivacion = "+5491234567890"
     numero_derivacion = "+59891453663"
     
-    def __init__(self, id_chat=None, id_cliente=None, id_repartidor=None, chat_service=None):
+    def __init__(self, id_chat=None, id_cliente=None, chat_service=None):
         self.id_chat = id_chat
         self.id_cliente = id_cliente
-        self.id_repartidor = id_repartidor
         
         if chat_service:
             self.chat_service = chat_service
@@ -272,57 +270,36 @@ class Chat:
     def handle_text(self, numero, texto):
         """
         Procesa mensajes de texto del cliente.
-        Flujo enfocado en barbería: turnos, cortes, visagismo, productos LC, etc.
+        Orquestador simple que delega al router.
         """
         texto_strip = texto.strip()
-        texto_lower = texto_strip.lower()
         
-        # Verificar si es repartidor (funcionalidad separada)
-        repartidor_service = RepartidorService()
-        repartidor = repartidor_service.obtener_repartidor_por_telefono(numero)
-
-        if repartidor:
-            print(f"Repartidor: {repartidor}")
-
-            if texto_strip.startswith("pedido_") or texto_strip.startswith("entregado_"):
-                if texto_strip.startswith("entregado_"):
-                    interactive = {
-                        "type": "button_reply",
-                        "button_reply": { "id": texto_strip }
-                    }
-                else:
-                    interactive = {
-                        "type": "list_reply",
-                        "list_reply": { "id": texto_strip }
-                    }
-
-                resultado = handle_interactive(numero, interactive)
-                return resultado
-
-            return enviar_mensaje_whatsapp(numero, "Eres repartidor no puedo procesar un mensaje que no sea conversacion")
-
-        # Manejar calificaciones
-        if texto_strip.startswith("calificar_"):
-            return manejar_calificacion(numero, texto_strip)
-
         if not self.id_chat:
             self.id_chat = f"chat_{numero}"
 
-        # Comandos especiales
-        if texto_lower in ("cancelar", "salir", "cancel"):
-            self.clear_state(numero)
-            clear_citas(numero)
-            return enviar_mensaje_whatsapp(numero, "❌ Operación cancelada.")
+        # Registrar mensaje del cliente en BD
+        if self.id_chat:
+            self.chat_service.registrar_mensaje(self.id_chat, texto_strip, es_cliente=True)
+        
+        # Llamar al router para procesar el mensaje con captura de errores
+        try:
+            from Util.message_router import route_message
+            respuesta = route_message(numero, texto, self)
+            
+            # Si hay respuesta, registrar y enviar con delay
+            if respuesta:
+                return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
+            
+            # Si no hay respuesta, no enviar nada (ya se notificó al equipo si hubo error)
+            return None
+        except Exception as e:
+            # Captura de errores críticos en el procesamiento
+            from Util.error_flow import handle_critical_exception
+            handle_critical_exception(e, texto_strip, numero, "chat.handle_text")
+            # El mensaje al cliente ya se envió en handle_critical_exception
+            return None
 
-        # Verificar si hay un comando registrado (ej: "ayuda")
-        if texto_lower in self.function_graph:
-            return self.function_graph[texto_lower]['function'](numero, texto_lower)
-
-        # ============================================
-        # PRIORIDAD 0: FLUJO SECUENCIAL DE BIENVENIDA
-        # ============================================
-        # Paso 1: Saludo inicial (usar Gemini con ejemplos)
-        if self.es_saludo(texto_strip) and not self.ya_se_saludo(numero):
+    def _registrar_y_enviar_mensaje(self, numero, mensaje, aplicar_delay=True):
             self.marcar_saludo(numero)
             link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
             link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
@@ -338,9 +315,7 @@ class Chat:
                 respuesta_predefinida=None
             )
             if saludo_inicial:
-                if self.id_chat:
-                    self.chat_service.registrar_mensaje(self.id_chat, saludo_inicial, es_cliente=False)
-                return enviar_mensaje_whatsapp(numero, saludo_inicial)
+                return self._registrar_y_enviar_mensaje(numero, saludo_inicial, aplicar_delay=True)
         
         # Paso 2: Si ya se saludó y está en paso "saludo_inicial", detectar respuesta positiva
         flujo_paso = self.get_flujo_paso(numero)
@@ -365,9 +340,7 @@ class Chat:
                     # FORZAR link SIEMPRE al final si no está presente
                     if link_reserva and link_reserva not in respuesta:
                         respuesta = f"{respuesta}\n\n{link_reserva}"
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, respuesta)
+                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
             elif self.es_respuesta_positiva(texto_strip):
                 self.set_flujo_paso(numero, "agendar_turno")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
@@ -383,9 +356,7 @@ class Chat:
                     respuesta_predefinida=None
                 )
                 if respuesta:
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, respuesta)
+                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
             # Si es negativa o no clara, continuar con flujo normal
         
         # Paso 3: Si está en paso "agendar_turno", detectar respuesta positiva y enviar link
@@ -410,9 +381,7 @@ class Chat:
                     # FORZAR link SIEMPRE al final si no está presente
                     if link_reserva and link_reserva not in respuesta:
                         respuesta = f"{respuesta}\n\n{link_reserva}"
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, respuesta)
+                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
             elif self.es_respuesta_positiva(texto_strip):
                 self.set_flujo_paso(numero, "link_enviado")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
@@ -432,9 +401,7 @@ class Chat:
                     # FORZAR link SIEMPRE al final si no está presente
                     if link_reserva and link_reserva not in respuesta:
                         respuesta = f"{respuesta}\n\n{link_reserva}"
-                    if self.id_chat:
-                        self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, respuesta)
+                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
             # Si es negativa, continuar con flujo normal
         
         # Paso 4: Detectar confirmación de reserva y enviar mensaje post-reserva
@@ -455,9 +422,7 @@ class Chat:
                 respuesta_predefinida=None
             )
             if respuesta:
-                if self.id_chat:
-                    self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
-                return enviar_mensaje_whatsapp(numero, respuesta)
+                return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
 
         # ============================================
         # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
@@ -488,6 +453,19 @@ class Chat:
                     self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
                 return enviar_mensaje_whatsapp(numero, respuesta)
         
+        # ============================================
+        # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
+        # ============================================
+        # Detectar aviso de demora (política determinística)
+        from Util.politicas_respuestas import procesar_aviso_demora
+        link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+        respuesta_demora = procesar_aviso_demora(texto_strip, link_reserva)
+        if respuesta_demora:
+            return self._registrar_y_enviar_mensaje(numero, respuesta_demora, aplicar_delay=True)
+        
+        # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
+        intencion_critica = detectar_intencion(texto_strip)
+        
         if intencion_critica == "derivar_humano":
             numero_derivacion = self.numero_derivacion if hasattr(self, 'numero_derivacion') and self.numero_derivacion else NUMERO_DERIVACION
             mensaje_derivacion = (
@@ -495,10 +473,7 @@ class Chat:
                 f"En breve te contactará alguien de nuestro equipo.\n\n"
                 f"Contacto: {numero_derivacion}"
             )
-            if self.id_chat:
-                self.chat_service.registrar_mensaje(self.id_chat, mensaje_derivacion, es_cliente=False)
-            enviar_mensaje_whatsapp(numero, mensaje_derivacion)
-            return {"success": True}
+            return self._registrar_y_enviar_mensaje(numero, mensaje_derivacion, aplicar_delay=True)
 
         # ============================================
         # PRIORIDAD 2: ESTIMAR TOKENS Y DECIDIR FLUJO
@@ -521,7 +496,7 @@ class Chat:
                 from Util.informacion_barberia import get_info_por_intencion
                 
                 intencion_fallback = detectar_intencion(texto_strip)
-                info_relevante_fallback = get_info_por_intencion(intencion_fallback) if intencion_fallback else ""
+                info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_strip) if intencion_fallback else ""
                 
                 respuesta_automatica = procesar_flujo_automatico(
                     texto_usuario=texto_strip,
@@ -551,14 +526,13 @@ class Chat:
                 if link_reserva not in respuesta_final:
                     respuesta_final += f"\n\n{link_reserva}"
             
-            if self.id_chat:
-                self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
-            return enviar_mensaje_whatsapp(numero, respuesta_final)
+            return self._registrar_y_enviar_mensaje(numero, respuesta_final, aplicar_delay=True)
         
         # Preparar datos para estimar tokens
         info_relevante = ""
         if intencion_critica:
-            info_relevante = get_info_por_intencion(intencion_critica)
+            # Pasar texto_usuario para precios, así puede buscar servicio específico
+            info_relevante = get_info_por_intencion(intencion_critica, texto_strip)
         
         ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
         
@@ -641,6 +615,11 @@ class Chat:
                         respuesta_predefinida=None
                     )
             
+            # Si la respuesta es None, no enviar nada (ya se notificó al equipo)
+            if not respuesta:
+                print("⚠️ Respuesta None, no se envía mensaje al cliente")
+                return None
+            
             # Reemplazar links en la respuesta final
             respuesta_final = reemplazar_links(respuesta, link_reserva, link_maps)
             
@@ -666,10 +645,7 @@ class Chat:
             if debe_incluir_link and link_reserva and link_reserva not in respuesta_final:
                 respuesta_final += f"\n\n{link_reserva}"
             
-            if self.id_chat:
-                self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
-            
-            return enviar_mensaje_whatsapp(numero, respuesta_final)
+            return self._registrar_y_enviar_mensaje(numero, respuesta_final, aplicar_delay=True)
             
         except Exception as e:
             print(f"⚠️ Error al generar respuesta con Gemini: {e}")
@@ -682,7 +658,7 @@ class Chat:
                 from Util.informacion_barberia import get_info_por_intencion
                 
                 intencion_fallback = detectar_intencion(texto_strip)
-                info_relevante_fallback = get_info_por_intencion(intencion_fallback) if intencion_fallback else ""
+                info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_strip) if intencion_fallback else ""
                 
                 respuesta_automatica = procesar_flujo_automatico(
                     texto_usuario=texto_strip,
@@ -699,15 +675,10 @@ class Chat:
             except Exception as e2:
                 print(f"⚠️ Error en flujo automático fallback: {e2}")
             
-            # FALLBACK 2: Si flujo automático falla, enviar mensaje de error con número directo
-            numero_derivacion = self.numero_derivacion if hasattr(self, 'numero_derivacion') and self.numero_derivacion else NUMERO_DERIVACION
-            mensaje_default = (
-                f"Disculpá, estoy teniendo problemas técnicos. "
-                f"Contactá directamente con nuestro equipo:\n\n{numero_derivacion}"
-            )
-            if self.id_chat:
-                self.chat_service.registrar_mensaje(self.id_chat, mensaje_default, es_cliente=False)
-            return enviar_mensaje_whatsapp(numero, mensaje_default)
+            # FALLBACK 2: Si flujo automático falla, no enviar mensaje técnico al cliente
+            # Solo notificar al equipo (ya se hizo en manejar_error)
+            print("⚠️ Error en flujo automático fallback, no se envía mensaje al cliente")
+            return None
 
         # ============================================
         # MENSAJE POR DEFECTO (si todo lo anterior falla)
@@ -720,9 +691,7 @@ class Chat:
         else:
             mensaje_default = "¡Bro! ¿Todo bien?\n\nEscribime lo que necesites o escribí *ayuda* para ver las opciones."
         
-        if self.id_chat:
-            self.chat_service.registrar_mensaje(self.id_chat, mensaje_default, es_cliente=False)
-        return enviar_mensaje_whatsapp(numero, mensaje_default)
+        return self._registrar_y_enviar_mensaje(numero, mensaje_default, aplicar_delay=True)
 
         # ============================================
         # FLUJO ANTIGUO DE AGENDAMIENTO (COMENTADO PARA REFERENCIA)
@@ -794,7 +763,21 @@ class Chat:
         # # Si no hay waiting_for, iniciar flujo de agendamiento
         # return self.flujo_inicio(numero, texto_lower)
 
-    def _registrar_y_enviar_mensaje(self, numero, mensaje):
+    def _registrar_y_enviar_mensaje(self, numero, mensaje, aplicar_delay=True):
+        """
+        Registra y envía un mensaje, con delay opcional para hacer más realista.
+        
+        Args:
+            numero: Número del cliente
+            mensaje: Mensaje a enviar
+            aplicar_delay: Si True, aplica delay de 30-60 segundos antes de enviar
+        """
+        if aplicar_delay:
+            # Delay aleatorio entre 30-60 segundos para hacer más realista
+            delay = random.uniform(30, 60)
+            print(f"⏳ Esperando {delay:.1f} segundos antes de enviar respuesta...")
+            time.sleep(delay)
+        
         if self.id_chat:
             self.chat_service.registrar_mensaje(self.id_chat, mensaje, es_cliente=False)
         return enviar_mensaje_whatsapp(numero, mensaje)

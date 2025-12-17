@@ -6,7 +6,8 @@ import traceback
 from whatsapp_api import enviar_mensaje_whatsapp
 
 # Variables de configuración (hardcodear después)
-num_desarrollador = "<NUMERO>"
+# Para testing: número de desarrollador
+num_desarrollador = "59891453663"
 num_empleado = "<NUMERO>"
 
 

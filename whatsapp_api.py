@@ -38,13 +38,20 @@ def enviar_mensaje_whatsapp(numero, mensaje):
 
     try:
         res_json = response.json()
+        message_id = None
+        if response.status_code == 200 and "messages" in res_json:
+            # Extraer message_id de la respuesta de WhatsApp API
+            message_id = res_json.get("messages", [{}])[0].get("id") if res_json.get("messages") else None
+        
         return {
             "success": response.status_code == 200,
             "error": res_json.get("error"),
+            "message_id": message_id,
+            "messages": res_json.get("messages", [])
         }
     except Exception as e:
         print(" Error", e)
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "message_id": None}
 
 
 def enviar_imagen_whatsapp(numero, ruta_imagen, caption=""):
@@ -135,6 +142,14 @@ def procesar_mensaje_recibido(data):
 
         message = messages[0]
         numero = message.get("from")
+        message_id = message.get("id")
+        
+        # Extraer contexto de respuesta si existe
+        context = message.get("context", {})
+        replied_message_id = None
+        if context:
+            replied_message = context.get("replied_message", {})
+            replied_message_id = replied_message.get("id") if replied_message else None
 
         if numero == WHATSAPP_PHONE_NUMBER_ID:
             print(" Ignorando mensaje del propio bot.")
@@ -145,7 +160,8 @@ def procesar_mensaje_recibido(data):
         if tipo == "audio":
             tipo = "text"
         
-        return numero, contenido, tipo
+        # Retornar: numero, contenido, tipo, message_id, replied_message_id
+        return numero, contenido, tipo, message_id, replied_message_id
 
     except Exception as e:
         print(f"⚠️ Error al procesar mensaje recibido: {e}")

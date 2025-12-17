@@ -1,7 +1,6 @@
 from Util.database import (
     init_db, get_db_connection,
-    Categoria, Producto, Cliente, Repartidor, Chat, Mensaje,
-    Pedido, DetallePedido, Calificaciones, ClientesCalificaciones
+    Categoria, Producto, Cliente, Chat, Mensaje
 )
 import logging
 
@@ -16,8 +15,7 @@ def main():
         print("Conexión a la base de datos chequeada")
         
         models = [
-            Categoria, Producto, Cliente, Repartidor, Chat, Mensaje,
-            Pedido, DetallePedido, Calificaciones, ClientesCalificaciones
+            Categoria, Producto, Cliente, Chat, Mensaje
         ]
         print(f"Modelos importados: {len(models)}")
         
