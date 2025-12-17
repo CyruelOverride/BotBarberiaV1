@@ -205,19 +205,19 @@ async def receive(request: Request):
             chat_service=None  # No se usa más
         )
 
-            # Registrar último cliente que interactuó (para testing con #Responder)
-            # Solo si no es el responsable
-            from Util.error_flow import is_responsable
-            from whatsapp_api import normalizar_numero_telefono
-            if not is_responsable(numero):
-                # Rastrear último cliente por cada responsable (para testing, ambos son el mismo número)
-                # Normalizar número para consistencia
-                responsable_test = normalizar_numero_telefono("59891453663")
-                if responsable_test not in ULTIMO_CLIENTE_CONTEXT:
-                    ULTIMO_CLIENTE_CONTEXT[responsable_test] = {}
-                ULTIMO_CLIENTE_CONTEXT[responsable_test]["ultimo_cliente"] = numero
-                ULTIMO_CLIENTE_CONTEXT[responsable_test]["ultimo_mensaje"] = mensaje
-            
+        # Registrar último cliente que interactuó (para testing con #Responder)
+        # Solo si no es el responsable
+        from Util.error_flow import is_responsable
+        from whatsapp_api import normalizar_numero_telefono
+        if not is_responsable(numero):
+            # Rastrear último cliente por cada responsable (para testing, ambos son el mismo número)
+            # Normalizar número para consistencia
+            responsable_test = normalizar_numero_telefono("59891453663")
+            if responsable_test not in ULTIMO_CLIENTE_CONTEXT:
+                ULTIMO_CLIENTE_CONTEXT[responsable_test] = {}
+            ULTIMO_CLIENTE_CONTEXT[responsable_test]["ultimo_cliente"] = numero
+            ULTIMO_CLIENTE_CONTEXT[responsable_test]["ultimo_mensaje"] = mensaje
+        
         if tipo in ("text", "interactive"):
             chat.handle_text(numero, mensaje)
         else:
