@@ -322,380 +322,386 @@ class Chat:
     # ============================================
     # FUNCIONES DEL FLUJO ANTIGUO (COMENTADAS PARA REFERENCIA)
     # ============================================
-            if self.quiere_link(texto_strip):
-                self.set_flujo_paso(numero, "link_enviado")
-                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-                respuesta = generar_respuesta_barberia(
-                    intencion="link_agenda",
-                    texto_usuario=texto_strip,
-                    info_relevante="",
-                    link_agenda=link_reserva,
-                    link_maps="",
-                    ya_hay_contexto=True,
-                    chat_service=self.chat_service,
-                    id_chat=self.id_chat,
-                    respuesta_predefinida=None
-                )
-                if respuesta:
-                    respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    # FORZAR link SIEMPRE al final si no está presente
-                    if link_reserva and link_reserva not in respuesta:
-                        respuesta = f"{respuesta}\n\n{link_reserva}"
-                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
-            elif self.es_respuesta_positiva(texto_strip):
-                self.set_flujo_paso(numero, "agendar_turno")
-                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-                respuesta = generar_respuesta_barberia(
-                    intencion="agendar_turno",
-                    texto_usuario=texto_strip,
-                    info_relevante="",
-                    link_agenda=link_reserva,
-                    link_maps="",
-                    ya_hay_contexto=True,
-                    chat_service=self.chat_service,
-                    id_chat=self.id_chat,
-                    respuesta_predefinida=None
-                )
-                if respuesta:
-                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
-            # Si es negativa o no clara, continuar con flujo normal
-        
-        # Paso 3: Si está en paso "agendar_turno", detectar respuesta positiva y enviar link
-        if flujo_paso == "agendar_turno":
-            # PRIORIDAD: Si pide el link explícitamente, enviarlo con Gemini pero FORZAR link
-            if self.quiere_link(texto_strip):
-                self.set_flujo_paso(numero, "link_enviado")
-                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-                respuesta = generar_respuesta_barberia(
-                    intencion="link_agenda",
-                    texto_usuario=texto_strip,
-                    info_relevante="",
-                    link_agenda=link_reserva,
-                    link_maps="",
-                    ya_hay_contexto=True,
-                    chat_service=self.chat_service,
-                    id_chat=self.id_chat,
-                    respuesta_predefinida=None
-                )
-                if respuesta:
-                    respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    # FORZAR link SIEMPRE al final si no está presente
-                    if link_reserva and link_reserva not in respuesta:
-                        respuesta = f"{respuesta}\n\n{link_reserva}"
-                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
-            elif self.es_respuesta_positiva(texto_strip):
-                self.set_flujo_paso(numero, "link_enviado")
-                link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-                respuesta = generar_respuesta_barberia(
-                    intencion="link_agenda",
-                    texto_usuario=texto_strip,
-                    info_relevante="",
-                    link_agenda=link_reserva,
-                    link_maps="",
-                    ya_hay_contexto=True,
-                    chat_service=self.chat_service,
-                    id_chat=self.id_chat,
-                    respuesta_predefinida=None
-                )
-                if respuesta:
-                    respuesta = reemplazar_links(respuesta, link_reserva, "")
-                    # FORZAR link SIEMPRE al final si no está presente
-                    if link_reserva and link_reserva not in respuesta:
-                        respuesta = f"{respuesta}\n\n{link_reserva}"
-                    return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
-            # Si es negativa, continuar con flujo normal
-        
-        # Paso 4: Detectar confirmación de reserva y enviar mensaje post-reserva
-        texto_lower_reserva = texto_lower
-        if flujo_paso == "link_enviado" and any(palabra in texto_lower_reserva for palabra in 
-            ["ya agende", "ya agendé", "reserve", "reservé", "ya reservé", "ya reserve", 
-             "listo", "listo agende", "agende", "agendé", "confirmado", "ya está"]):
-            self.set_flujo_paso(numero, "reserva_confirmada")
-            respuesta = generar_respuesta_barberia(
-                intencion="post_reserva",
-                texto_usuario=texto_strip,
-                info_relevante="",
-                link_agenda="",
-                link_maps="",
-                ya_hay_contexto=True,
-                chat_service=self.chat_service,
-                id_chat=self.id_chat,
-                respuesta_predefinida=None
-            )
-            if respuesta:
-                return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
-
-        # ============================================
-        # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
-        # ============================================
-        # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
-        intencion_critica = detectar_intencion(texto_strip)
-        
-        # DETECCIÓN ESPECIAL: Si el usuario pide el link explícitamente, enviarlo con Gemini pero FORZAR link
-        if self.quiere_link(texto_strip):
-            link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-            respuesta = generar_respuesta_barberia(
-                intencion="link_agenda",
-                texto_usuario=texto_strip,
-                info_relevante="",
-                link_agenda=link_reserva,
-                link_maps="",
-                ya_hay_contexto=True,
-                chat_service=self.chat_service,
-                id_chat=self.id_chat,
-                respuesta_predefinida=None
-            )
-            if respuesta:
-                respuesta = reemplazar_links(respuesta, link_reserva, "")
-                # FORZAR link SIEMPRE al final si no está presente
-                if link_reserva and link_reserva not in respuesta:
-                    respuesta = f"{respuesta}\n\n{link_reserva}"
-                # Comentado: No persistir mensajes en BD para testing
-                # if self.id_chat:
-                #     self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
-                return enviar_mensaje_whatsapp(numero, respuesta)
-        
-        # ============================================
-        # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
-        # ============================================
-        # Detectar aviso de demora (política determinística)
-        from Util.politicas_respuestas import procesar_aviso_demora
-        link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-        respuesta_demora = procesar_aviso_demora(texto_strip, link_reserva)
-        if respuesta_demora:
-            return self._registrar_y_enviar_mensaje(numero, respuesta_demora, aplicar_delay=True)
-        
-        # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
-        intencion_critica = detectar_intencion(texto_strip)
-        
-        if intencion_critica == "derivar_humano":
-            numero_derivacion = self.numero_derivacion if hasattr(self, 'numero_derivacion') and self.numero_derivacion else NUMERO_DERIVACION
-            mensaje_derivacion = (
-                f"Te voy a derivar con un asistente humano que te va a poder ayudar mejor. "
-                f"En breve te contactará alguien de nuestro equipo.\n\n"
-                f"Contacto: {numero_derivacion}"
-            )
-            return self._registrar_y_enviar_mensaje(numero, mensaje_derivacion, aplicar_delay=True)
-
-        # ============================================
-        # PRIORIDAD 2: ESTIMAR TOKENS Y DECIDIR FLUJO
-        # ============================================
-        # Solo usar respuestas predefinidas con keywords directos (sin Gemini)
-        respuesta_predefinida = None
-        try:
-            # Solo buscar con keywords directos, sin usar Gemini
-            resultado_keywords = detectar_intencion_respuesta(texto_strip)
-            if resultado_keywords:
-                intencion_kw, clave_kw = resultado_keywords
-                respuesta_predefinida = get_response(intencion_kw, clave_kw)
-        except Exception as e:
-            print(f"⚠️ Error en sistema de respuestas predefinidas: {e}")
-            manejar_error(e, texto_strip, numero)
-            # Intentar flujo automático como fallback
-            try:
-                from Util.flujo_automatico import procesar_flujo_automatico
-                from Util.intents import detectar_intencion
-                from Util.informacion_barberia import get_info_por_intencion
-                
-                intencion_fallback = detectar_intencion(texto_strip)
-                info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_strip) if intencion_fallback else ""
-                
-                respuesta_automatica = procesar_flujo_automatico(
-                    texto_usuario=texto_strip,
-                    intencion=intencion_fallback if intencion_fallback else "",
-                    info_relevante=info_relevante_fallback
-                )
-                
-                if respuesta_automatica:
-                    print(f"✅ Flujo automático exitoso como fallback después de error en respuestas predefinidas")
-                    link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-                    link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
-                    respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
-                    # Comentado: No persistir mensajes en BD para testing
-                    # if self.id_chat:
-                    #     self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, respuesta_final)
-            except Exception as e2:
-                print(f"⚠️ Error en flujo automático fallback: {e2}")
-        
-        # Si hay respuesta predefinida con keywords directos, usarla (10% de los casos)
-        if respuesta_predefinida:
-            link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-            link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
-            respuesta_final = reemplazar_links(respuesta_predefinida, link_reserva, link_maps)
-            
-            # Si es sobre turnos/agenda y no tiene link, agregarlo
-            if ("turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower) and link_reserva:
-                if link_reserva not in respuesta_final:
-                    respuesta_final += f"\n\n{link_reserva}"
-            
-            return self._registrar_y_enviar_mensaje(numero, respuesta_final, aplicar_delay=True)
-        
-        # Preparar datos para estimar tokens
-        info_relevante = ""
-        if intencion_critica:
-            # Pasar texto_usuario para precios, así puede buscar servicio específico
-            info_relevante = get_info_por_intencion(intencion_critica, texto_strip)
-        
-        ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
-        
-        # Obtener historial cuando hay contexto de conversación
-        historial_comprimido = ""
-        ultimos_mensajes = None
-        if ya_hay_contexto and self.chat_service and self.id_chat:
-            try:
-                # Siempre obtener últimos mensajes para contextualización (al menos los últimos 3-4)
-                ultimos_mensajes = self.chat_service.obtener_ultimos_mensajes(self.id_chat, limite=4)
-                
-                # Si hay muchos mensajes, también obtener historial comprimido como contexto adicional
-                todos_mensajes = self.chat_service.obtener_todos_mensajes(self.id_chat)
-                if todos_mensajes and len(todos_mensajes) > 10:
-                    historial_comprimido = compress_history(todos_mensajes)
-                    print(f"📚 Usando historial comprimido + últimos mensajes ({len(todos_mensajes)} mensajes totales)")
-                else:
-                    print(f"📝 Usando últimos mensajes ({len(ultimos_mensajes) if ultimos_mensajes else 0} mensajes)")
-            except Exception as e:
-                print(f"⚠️ Error obteniendo historial: {e}")
-        
-        # Estimar tokens del prompt que se construiría
-        prompt_estimado = build_modular_prompt(
-            intencion=intencion_critica if intencion_critica else "",
-            texto_usuario=texto_strip,
-            info_relevante=info_relevante,
-            historial_comprimido=historial_comprimido,
-            ultimos_mensajes=ultimos_mensajes,
-            ya_hay_contexto=ya_hay_contexto
-        )
-        tokens_estimados = count_tokens(prompt_estimado, use_api=False)
-        print(f"📊 Tokens estimados: {tokens_estimados}")
-        
-        # ============================================
-        # PRIORIDAD 3: GEMINI (90% de los casos si tokens <= 500)
-        # ============================================
-        try:
-            link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-            link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
-            
-            # Si tokens <= 500, usar Gemini directamente (90% de los casos)
-            if tokens_estimados <= 500:
-                print(f"✅ Tokens <= 500, usando Gemini directamente")
-                respuesta = generar_respuesta_barberia(
-                    intencion_critica if intencion_critica else "", 
-                    texto_strip, 
-                    info_relevante,
-                    link_reserva,
-                    link_maps,
-                    ya_hay_contexto,
-                    self.chat_service,
-                    self.id_chat,
-                    respuesta_predefinida=None
-                )
-            else:
-                # Si tokens > 500, intentar flujo automático primero
-                print(f"⚠️ Tokens > 500, intentando flujo automático primero...")
-                from Util.flujo_automatico import procesar_flujo_automatico
-                respuesta_automatica = procesar_flujo_automatico(
-                    texto_usuario=texto_strip,
-                    intencion=intencion_critica if intencion_critica else "",
-                    info_relevante=info_relevante
-                )
-                
-                if respuesta_automatica:
-                    print(f"✅ Flujo automático exitoso, evitando Gemini")
-                    respuesta = respuesta_automatica
-                else:
-                    # Si no encuentra nada, usar Gemini de todas formas
-                    print(f"⚠️ Flujo automático no encontró respuesta, usando Gemini")
-                    respuesta = generar_respuesta_barberia(
-                        intencion_critica if intencion_critica else "", 
-                        texto_strip, 
-                        info_relevante,
-                        link_reserva,
-                        link_maps,
-                        ya_hay_contexto,
-                        self.chat_service,
-                        self.id_chat,
-                        respuesta_predefinida=None
-                    )
-            
-            # Si la respuesta es None, no enviar nada (ya se notificó al equipo)
-            if not respuesta:
-                print("⚠️ Respuesta None, no se envía mensaje al cliente")
-                return None
-            
-            # Reemplazar links en la respuesta final
-            respuesta_final = reemplazar_links(respuesta, link_reserva, link_maps)
-            
-            # FORZAR link si:
-            # 1. La intención es "turnos" o "link_agenda"
-            # 2. El usuario preguntó por turnos/agenda/reserva
-            # 3. Se menciona link/agenda pero no está presente
-            import re
-            menciona_link_o_agenda = re.search(
-                r"(link|agenda|reserva|turno).*(?:te paso|te dejo|te mando|ahí|ahi)",
-                respuesta_final,
-                re.IGNORECASE
-            )
-            
-            debe_incluir_link = False
-            if intencion_critica and intencion_critica.lower() in ["turnos", "link_agenda"]:
-                debe_incluir_link = True
-            elif "turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower:
-                debe_incluir_link = True
-            elif menciona_link_o_agenda:
-                debe_incluir_link = True
-            
-            if debe_incluir_link and link_reserva and link_reserva not in respuesta_final:
-                respuesta_final += f"\n\n{link_reserva}"
-            
-            return self._registrar_y_enviar_mensaje(numero, respuesta_final, aplicar_delay=True)
-            
-        except Exception as e:
-            print(f"⚠️ Error al generar respuesta con Gemini: {e}")
-            manejar_error(e, texto_strip, numero)
-            
-            # FALLBACK 1: Intentar flujo automático antes de enviar error
-            try:
-                from Util.flujo_automatico import procesar_flujo_automatico
-                from Util.intents import detectar_intencion
-                from Util.informacion_barberia import get_info_por_intencion
-                
-                intencion_fallback = detectar_intencion(texto_strip)
-                info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_strip) if intencion_fallback else ""
-                
-                respuesta_automatica = procesar_flujo_automatico(
-                    texto_usuario=texto_strip,
-                    intencion=intencion_fallback if intencion_fallback else "",
-                    info_relevante=info_relevante_fallback
-                )
-                
-                if respuesta_automatica:
-                    print(f"✅ Flujo automático exitoso como fallback después de error")
-                    respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
-                    # Comentado: No persistir mensajes en BD para testing
-                    # if self.id_chat:
-                    #     self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
-                    return enviar_mensaje_whatsapp(numero, respuesta_final)
-            except Exception as e2:
-                print(f"⚠️ Error en flujo automático fallback: {e2}")
-            
-            # FALLBACK 2: Si flujo automático falla, no enviar mensaje técnico al cliente
-            # Solo notificar al equipo (ya se hizo en manejar_error)
-            print("⚠️ Error en flujo automático fallback, no se envía mensaje al cliente")
-            return None
-
-        # ============================================
-        # MENSAJE POR DEFECTO (si todo lo anterior falla)
-        # ============================================
-        # Solo usar mensaje genérico si no hay contexto de conversación
-        ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
-        if ya_hay_contexto:
-            # Si ya hay contexto, no usar saludo genérico
-            mensaje_default = "Escribime lo que necesites o escribí *ayuda* para ver las opciones."
-        else:
-            mensaje_default = "¡Bro! ¿Todo bien?\n\nEscribime lo que necesites o escribí *ayuda* para ver las opciones."
-        
-        return self._registrar_y_enviar_mensaje(numero, mensaje_default, aplicar_delay=True)
+    # NOTA: Este código fue movido al router (Util/message_router.py)
+    # Se mantiene comentado aquí para referencia histórica
+    #
+    # # Código del flujo secuencial antiguo (ahora en handle_sequential_flow del router):
+    # flujo_paso = self.get_flujo_paso(numero)
+    # if flujo_paso == "saludo_inicial" and self.ya_se_saludo(numero):
+    #     if self.quiere_link(texto_strip):
+    #         self.set_flujo_paso(numero, "link_enviado")
+    #         link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #         respuesta = generar_respuesta_barberia(
+    #             intencion="link_agenda",
+    #             texto_usuario=texto_strip,
+    #             info_relevante="",
+    #             link_agenda=link_reserva,
+    #             link_maps="",
+    #             ya_hay_contexto=True,
+    #             chat_service=self.chat_service,
+    #             id_chat=self.id_chat,
+    #             respuesta_predefinida=None
+    #         )
+    #         if respuesta:
+    #             respuesta = reemplazar_links(respuesta, link_reserva, "")
+    #             # FORZAR link SIEMPRE al final si no está presente
+    #             if link_reserva and link_reserva not in respuesta:
+    #                 respuesta = f"{respuesta}\n\n{link_reserva}"
+    #             return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
+    #     elif self.es_respuesta_positiva(texto_strip):
+    #         self.set_flujo_paso(numero, "agendar_turno")
+    #         link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #         respuesta = generar_respuesta_barberia(
+    #             intencion="agendar_turno",
+    #             texto_usuario=texto_strip,
+    #             info_relevante="",
+    #             link_agenda=link_reserva,
+    #             link_maps="",
+    #             ya_hay_contexto=True,
+    #             chat_service=self.chat_service,
+    #             id_chat=self.id_chat,
+    #             respuesta_predefinida=None
+    #         )
+    #         if respuesta:
+    #             return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
+    #     # Si es negativa o no clara, continuar con flujo normal
+    # 
+    # # Paso 3: Si está en paso "agendar_turno", detectar respuesta positiva y enviar link
+    # if flujo_paso == "agendar_turno":
+    #     # PRIORIDAD: Si pide el link explícitamente, enviarlo con Gemini pero FORZAR link
+    #     if self.quiere_link(texto_strip):
+    #         self.set_flujo_paso(numero, "link_enviado")
+    #         link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #         respuesta = generar_respuesta_barberia(
+    #             intencion="link_agenda",
+    #             texto_usuario=texto_strip,
+    #             info_relevante="",
+    #             link_agenda=link_reserva,
+    #             link_maps="",
+    #             ya_hay_contexto=True,
+    #             chat_service=self.chat_service,
+    #             id_chat=self.id_chat,
+    #             respuesta_predefinida=None
+    #         )
+    #         if respuesta:
+    #             respuesta = reemplazar_links(respuesta, link_reserva, "")
+    #             # FORZAR link SIEMPRE al final si no está presente
+    #             if link_reserva and link_reserva not in respuesta:
+    #                 respuesta = f"{respuesta}\n\n{link_reserva}"
+    #             return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
+    #     elif self.es_respuesta_positiva(texto_strip):
+    #         self.set_flujo_paso(numero, "link_enviado")
+    #         link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #         respuesta = generar_respuesta_barberia(
+    #             intencion="link_agenda",
+    #             texto_usuario=texto_strip,
+    #             info_relevante="",
+    #             link_agenda=link_reserva,
+    #             link_maps="",
+    #             ya_hay_contexto=True,
+    #             chat_service=self.chat_service,
+    #             id_chat=self.id_chat,
+    #             respuesta_predefinida=None
+    #         )
+    #         if respuesta:
+    #             respuesta = reemplazar_links(respuesta, link_reserva, "")
+    #             # FORZAR link SIEMPRE al final si no está presente
+    #             if link_reserva and link_reserva not in respuesta:
+    #                 respuesta = f"{respuesta}\n\n{link_reserva}"
+    #             return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
+    #     # Si es negativa, continuar con flujo normal
+    # 
+    # # Paso 4: Detectar confirmación de reserva y enviar mensaje post-reserva
+    # texto_lower_reserva = texto_lower
+    # if flujo_paso == "link_enviado" and any(palabra in texto_lower_reserva for palabra in 
+    #     ["ya agende", "ya agendé", "reserve", "reservé", "ya reservé", "ya reserve", 
+    #      "listo", "listo agende", "agende", "agendé", "confirmado", "ya está"]):
+    #     self.set_flujo_paso(numero, "reserva_confirmada")
+    #     respuesta = generar_respuesta_barberia(
+    #         intencion="post_reserva",
+    #         texto_usuario=texto_strip,
+    #         info_relevante="",
+    #         link_agenda="",
+    #         link_maps="",
+    #         ya_hay_contexto=True,
+    #         chat_service=self.chat_service,
+    #         id_chat=self.id_chat,
+    #         respuesta_predefinida=None
+    #     )
+    #     if respuesta:
+    #         return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
+    # 
+    # # ============================================
+    # # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
+    # # ============================================
+    # # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
+    # intencion_critica = detectar_intencion(texto_strip)
+    # 
+    # # DETECCIÓN ESPECIAL: Si el usuario pide el link explícitamente, enviarlo con Gemini pero FORZAR link
+    # if self.quiere_link(texto_strip):
+    #     link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #     respuesta = generar_respuesta_barberia(
+    #         intencion="link_agenda",
+    #         texto_usuario=texto_strip,
+    #         info_relevante="",
+    #         link_agenda=link_reserva,
+    #         link_maps="",
+    #         ya_hay_contexto=True,
+    #         chat_service=self.chat_service,
+    #         id_chat=self.id_chat,
+    #         respuesta_predefinida=None
+    #     )
+    #     if respuesta:
+    #         respuesta = reemplazar_links(respuesta, link_reserva, "")
+    #         # FORZAR link SIEMPRE al final si no está presente
+    #         if link_reserva and link_reserva not in respuesta:
+    #             respuesta = f"{respuesta}\n\n{link_reserva}"
+    #         # Comentado: No persistir mensajes en BD para testing
+    #         # if self.id_chat:
+    #         #     self.chat_service.registrar_mensaje(self.id_chat, respuesta, es_cliente=False)
+    #         return enviar_mensaje_whatsapp(numero, respuesta)
+    # 
+    # # ============================================
+    # # PRIORIDAD 1: REGLAS BÁSICAS CRÍTICAS
+    # # ============================================
+    # # Detectar aviso de demora (política determinística)
+    # from Util.politicas_respuestas import procesar_aviso_demora
+    # link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    # respuesta_demora = procesar_aviso_demora(texto_strip, link_reserva)
+    # if respuesta_demora:
+    #     return self._registrar_y_enviar_mensaje(numero, respuesta_demora, aplicar_delay=True)
+    # 
+    # # Detectar cosas críticas con keywords simples (derivar, ubicación, precio básico)
+    # intencion_critica = detectar_intencion(texto_strip)
+    # 
+    # if intencion_critica == "derivar_humano":
+    #     numero_derivacion = self.numero_derivacion if hasattr(self, 'numero_derivacion') and self.numero_derivacion else NUMERO_DERIVACION
+    #     mensaje_derivacion = (
+    #         f"Te voy a derivar con un asistente humano que te va a poder ayudar mejor. "
+    #         f"En breve te contactará alguien de nuestro equipo.\n\n"
+    #         f"Contacto: {numero_derivacion}"
+    #     )
+    #     return self._registrar_y_enviar_mensaje(numero, mensaje_derivacion, aplicar_delay=True)
+    # 
+    # # ============================================
+    # # PRIORIDAD 2: ESTIMAR TOKENS Y DECIDIR FLUJO
+    # # ============================================
+    # # Solo usar respuestas predefinidas con keywords directos (sin Gemini)
+    # respuesta_predefinida = None
+    # try:
+    #     # Solo buscar con keywords directos, sin usar Gemini
+    #     resultado_keywords = detectar_intencion_respuesta(texto_strip)
+    #     if resultado_keywords:
+    #         intencion_kw, clave_kw = resultado_keywords
+    #         respuesta_predefinida = get_response(intencion_kw, clave_kw)
+    # except Exception as e:
+    #     print(f"⚠️ Error en sistema de respuestas predefinidas: {e}")
+    #     manejar_error(e, texto_strip, numero)
+    #     # Intentar flujo automático como fallback
+    #     try:
+    #         from Util.flujo_automatico import procesar_flujo_automatico
+    #         from Util.intents import detectar_intencion
+    #         from Util.informacion_barberia import get_info_por_intencion
+    #         
+    #         intencion_fallback = detectar_intencion(texto_strip)
+    #         info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_strip) if intencion_fallback else ""
+    #         
+    #         respuesta_automatica = procesar_flujo_automatico(
+    #             texto_usuario=texto_strip,
+    #             intencion=intencion_fallback if intencion_fallback else "",
+    #             info_relevante=info_relevante_fallback
+    #         )
+    #         
+    #         if respuesta_automatica:
+    #             print(f"✅ Flujo automático exitoso como fallback después de error en respuestas predefinidas")
+    #             link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #             link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
+    #             respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
+    #             # Comentado: No persistir mensajes en BD para testing
+    #             # if self.id_chat:
+    #             #     self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
+    #             return enviar_mensaje_whatsapp(numero, respuesta_final)
+    #     except Exception as e2:
+    #         print(f"⚠️ Error en flujo automático fallback: {e2}")
+    # 
+    # # Si hay respuesta predefinida con keywords directos, usarla (10% de los casos)
+    # if respuesta_predefinida:
+    #     link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #     link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
+    #     respuesta_final = reemplazar_links(respuesta_predefinida, link_reserva, link_maps)
+    #     
+    #     # Si es sobre turnos/agenda y no tiene link, agregarlo
+    #     if ("turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower) and link_reserva:
+    #         if link_reserva not in respuesta_final:
+    #             respuesta_final += f"\n\n{link_reserva}"
+    #     
+    #     return self._registrar_y_enviar_mensaje(numero, respuesta_final, aplicar_delay=True)
+    # 
+    # # Preparar datos para estimar tokens
+    # info_relevante = ""
+    # if intencion_critica:
+    #     # Pasar texto_usuario para precios, así puede buscar servicio específico
+    #     info_relevante = get_info_por_intencion(intencion_critica, texto_strip)
+    # 
+    # ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
+    # 
+    # # Obtener historial cuando hay contexto de conversación
+    # historial_comprimido = ""
+    # ultimos_mensajes = None
+    # if ya_hay_contexto and self.chat_service and self.id_chat:
+    #     try:
+    #         # Siempre obtener últimos mensajes para contextualización (al menos los últimos 3-4)
+    #         ultimos_mensajes = self.chat_service.obtener_ultimos_mensajes(self.id_chat, limite=4)
+    #         
+    #         # Si hay muchos mensajes, también obtener historial comprimido como contexto adicional
+    #         todos_mensajes = self.chat_service.obtener_todos_mensajes(self.id_chat)
+    #         if todos_mensajes and len(todos_mensajes) > 10:
+    #             historial_comprimido = compress_history(todos_mensajes)
+    #             print(f"📚 Usando historial comprimido + últimos mensajes ({len(todos_mensajes)} mensajes totales)")
+    #         else:
+    #             print(f"📝 Usando últimos mensajes ({len(ultimos_mensajes) if ultimos_mensajes else 0} mensajes)")
+    #     except Exception as e:
+    #         print(f"⚠️ Error obteniendo historial: {e}")
+    # 
+    # # Estimar tokens del prompt que se construiría
+    # prompt_estimado = build_modular_prompt(
+    #     intencion=intencion_critica if intencion_critica else "",
+    #     texto_usuario=texto_strip,
+    #     info_relevante=info_relevante,
+    #     historial_comprimido=historial_comprimido,
+    #     ultimos_mensajes=ultimos_mensajes,
+    #     ya_hay_contexto=ya_hay_contexto
+    # )
+    # tokens_estimados = count_tokens(prompt_estimado, use_api=False)
+    # print(f"📊 Tokens estimados: {tokens_estimados}")
+    # 
+    # # ============================================
+    # # PRIORIDAD 3: GEMINI (90% de los casos si tokens <= 500)
+    # # ============================================
+    # try:
+    #     link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
+    #     link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
+    #     
+    #     # Si tokens <= 500, usar Gemini directamente (90% de los casos)
+    #     if tokens_estimados <= 500:
+    #         print(f"✅ Tokens <= 500, usando Gemini directamente")
+    #         respuesta = generar_respuesta_barberia(
+    #             intencion_critica if intencion_critica else "", 
+    #             texto_strip, 
+    #             info_relevante,
+    #             link_reserva,
+    #             link_maps,
+    #             ya_hay_contexto,
+    #             self.chat_service,
+    #             self.id_chat,
+    #             respuesta_predefinida=None
+    #         )
+    #     else:
+    #         # Si tokens > 500, intentar flujo automático primero
+    #         print(f"⚠️ Tokens > 500, intentando flujo automático primero...")
+    #         from Util.flujo_automatico import procesar_flujo_automatico
+    #         respuesta_automatica = procesar_flujo_automatico(
+    #             texto_usuario=texto_strip,
+    #             intencion=intencion_critica if intencion_critica else "",
+    #             info_relevante=info_relevante
+    #         )
+    #         
+    #         if respuesta_automatica:
+    #             print(f"✅ Flujo automático exitoso, evitando Gemini")
+    #             respuesta = respuesta_automatica
+    #         else:
+    #             # Si no encuentra nada, usar Gemini de todas formas
+    #             print(f"⚠️ Flujo automático no encontró respuesta, usando Gemini")
+    #             respuesta = generar_respuesta_barberia(
+    #                 intencion_critica if intencion_critica else "", 
+    #                 texto_strip, 
+    #                 info_relevante,
+    #                 link_reserva,
+    #                 link_maps,
+    #                 ya_hay_contexto,
+    #                 self.chat_service,
+    #                 self.id_chat,
+    #                 respuesta_predefinida=None
+    #             )
+    #     
+    #     # Si la respuesta es None, no enviar nada (ya se notificó al equipo)
+    #     if not respuesta:
+    #         print("⚠️ Respuesta None, no se envía mensaje al cliente")
+    #         return None
+    #     
+    #     # Reemplazar links en la respuesta final
+    #     respuesta_final = reemplazar_links(respuesta, link_reserva, link_maps)
+    #     
+    #     # FORZAR link si:
+    #     # 1. La intención es "turnos" o "link_agenda"
+    #     # 2. El usuario preguntó por turnos/agenda/reserva
+    #     # 3. Se menciona link/agenda pero no está presente
+    #     import re
+    #     menciona_link_o_agenda = re.search(
+    #         r"(link|agenda|reserva|turno).*(?:te paso|te dejo|te mando|ahí|ahi)",
+    #         respuesta_final,
+    #         re.IGNORECASE
+    #     )
+    #     
+    #     debe_incluir_link = False
+    #     if intencion_critica and intencion_critica.lower() in ["turnos", "link_agenda"]:
+    #         debe_incluir_link = True
+    #     elif "turno" in texto_lower or "agenda" in texto_lower or "reserva" in texto_lower:
+    #         debe_incluir_link = True
+    #     elif menciona_link_o_agenda:
+    #         debe_incluir_link = True
+    #     
+    #     if debe_incluir_link and link_reserva and link_reserva not in respuesta_final:
+    #         respuesta_final += f"\n\n{link_reserva}"
+    #     
+    #     return self._registrar_y_enviar_mensaje(numero, respuesta_final, aplicar_delay=True)
+    #     
+    # except Exception as e:
+    #     print(f"⚠️ Error al generar respuesta con Gemini: {e}")
+    #     manejar_error(e, texto_strip, numero)
+    #     
+    #     # FALLBACK 1: Intentar flujo automático antes de enviar error
+    #     try:
+    #         from Util.flujo_automatico import procesar_flujo_automatico
+    #         from Util.intents import detectar_intencion
+    #         from Util.informacion_barberia import get_info_por_intencion
+    #         
+    #         intencion_fallback = detectar_intencion(texto_strip)
+    #         info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_strip) if intencion_fallback else ""
+    #         
+    #         respuesta_automatica = procesar_flujo_automatico(
+    #             texto_usuario=texto_strip,
+    #             intencion=intencion_fallback if intencion_fallback else "",
+    #             info_relevante=info_relevante_fallback
+    #         )
+    #         
+    #         if respuesta_automatica:
+    #             print(f"✅ Flujo automático exitoso como fallback después de error")
+    #             respuesta_final = reemplazar_links(respuesta_automatica, link_reserva, link_maps)
+    #             # Comentado: No persistir mensajes en BD para testing
+    #             # if self.id_chat:
+    #             #     self.chat_service.registrar_mensaje(self.id_chat, respuesta_final, es_cliente=False)
+    #             return enviar_mensaje_whatsapp(numero, respuesta_final)
+    #     except Exception as e2:
+    #         print(f"⚠️ Error en flujo automático fallback: {e2}")
+    #     
+    #     # FALLBACK 2: Si flujo automático falla, no enviar mensaje técnico al cliente
+    #     # Solo notificar al equipo (ya se hizo en manejar_error)
+    #     print("⚠️ Error en flujo automático fallback, no se envía mensaje al cliente")
+    #     return None
+    # 
+    # # ============================================
+    # # MENSAJE POR DEFECTO (si todo lo anterior falla)
+    # # ============================================
+    # # Solo usar mensaje genérico si no hay contexto de conversación
+    # ya_hay_contexto = self.ya_se_saludo(numero) or intencion_critica
+    # if ya_hay_contexto:
+    #     # Si ya hay contexto, no usar saludo genérico
+    #     mensaje_default = "Escribime lo que necesites o escribí *ayuda* para ver las opciones."
+    # else:
+    #     mensaje_default = "¡Bro! ¿Todo bien?\n\nEscribime lo que necesites o escribí *ayuda* para ver las opciones."
+    # 
+    # return self._registrar_y_enviar_mensaje(numero, mensaje_default, aplicar_delay=True)
 
         # ============================================
         # FLUJO ANTIGUO DE AGENDAMIENTO (COMENTADO PARA REFERENCIA)
