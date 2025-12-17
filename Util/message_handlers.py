@@ -35,6 +35,62 @@ def handle_demora(texto: str, link_agenda: str = "", chat_instance: Any = None) 
         # Si no se pueden extraer datos, respuesta genérica
         return "Bro, no pasa nada. Ya le avisamos al barbero con el cual agendaste tu turno."
     
+    # CASO ESPECIAL: Si solo hay hora_llegada pero no hora_turno, preguntar primero
+    if datos.get("hora_llegada") and not datos.get("hora_turno") and not datos.get("minutos_demora"):
+        # Guardar hora_llegada en estado y preguntar por hora_turno
+        if chat_instance:
+            numero = chat_instance.id_chat.replace("chat_", "") if chat_instance.id_chat else ""
+            from Util.estado import set_waiting_for
+            set_waiting_for(numero, "demora_hora_turno", {
+                "hora_llegada": datos.get("hora_llegada"),
+                "texto_original": texto
+            })
+            return "Bro, ¿a qué hora tenías reservado el turno? Así calculo la demora y te digo qué hacer."
+    
+    # CASO: Si estamos esperando hora_turno y el usuario responde
+    if chat_instance:
+        numero = chat_instance.id_chat.replace("chat_", "") if chat_instance.id_chat else ""
+        from Util.estado import get_waiting_for, get_estado, clear_waiting_for
+        waiting = get_waiting_for(numero)
+        
+        if waiting == "demora_hora_turno":
+            # El usuario está respondiendo con la hora del turno
+            estado = get_estado(numero)
+            context_data = estado.get("context_data", {})
+            hora_llegada = context_data.get("hora_llegada")
+            
+            # Intentar extraer hora del turno del mensaje actual
+            import re
+            patron_hora = r'\b(\d{1,2}):?(\d{2})?\b'
+            horas_encontradas = re.findall(patron_hora, texto)
+            
+            if horas_encontradas:
+                # Tomar la primera hora encontrada como hora_turno
+                hora_parts = horas_encontradas[0]
+                if len(hora_parts[1]) == 2:  # Tiene minutos
+                    hora_turno = f"{int(hora_parts[0]):02d}:{hora_parts[1]}"
+                else:  # Solo hora, asumir :00
+                    hora_turno = f"{int(hora_parts[0]):02d}:00"
+                
+                # Reconstruir datos completos
+                datos["hora_turno"] = hora_turno
+                datos["hora_llegada"] = hora_llegada
+                
+                # Calcular minutos de demora
+                try:
+                    turno_parts = hora_turno.split(":")
+                    llegada_parts = hora_llegada.split(":")
+                    turno_minutos = int(turno_parts[0]) * 60 + int(turno_parts[1])
+                    llegada_minutos = int(llegada_parts[0]) * 60 + int(llegada_parts[1])
+                    minutos_demora = llegada_minutos - turno_minutos
+                    if minutos_demora > 0:
+                        datos["minutos_demora"] = minutos_demora
+                except:
+                    pass
+                
+                # Limpiar estado de espera
+                clear_waiting_for(numero)
+    
     # 3. Decidir política (código) → policy_engine
     resultado_politica = aplicar_politica("aviso_demora", datos)
     estado = resultado_politica["estado"]

@@ -3,11 +3,18 @@ from datetime import datetime
 import re
 import time
 import random
+import threading
 # Comentado: No se usa más la base de datos
 # from Services.ChatService import ChatService
 # from Services.ClienteService import ClienteService
 # from Util.database import get_db_session
 from whatsapp_api import enviar_mensaje_whatsapp
+
+# Sistema de throttling para evitar bucles
+# Trackea el último tiempo de procesamiento por número
+_ultimo_procesamiento: Dict[str, float] = {}
+_procesando: Dict[str, bool] = {}
+_throttle_lock = threading.Lock()
 from Util.estado import get_estado, reset_estado, get_waiting_for, set_waiting_for, clear_waiting_for, get_citas, add_cita, clear_citas
 from Util.procesar_texto_gemini import detectar_consulta_reserva, generar_respuesta_barberia
 from Util.intents import detectar_intencion
@@ -274,18 +281,42 @@ class Chat:
         """
         Procesa mensajes de texto del cliente.
         Orquestador simple que delega al router.
+        Con throttling para evitar bucles: solo procesa si pasó suficiente tiempo desde el último mensaje.
         """
         texto_strip = texto.strip()
         
         if not self.id_chat:
             self.id_chat = f"chat_{numero}"
 
-        # Comentado: No persistir mensajes en BD para testing
-        # if self.id_chat:
-        #     self.chat_service.registrar_mensaje(self.id_chat, texto_strip, es_cliente=True)
+        # Sistema de throttling: evitar procesar mensajes muy seguidos del mismo número
+        tiempo_actual = time.time()
+        tiempo_minimo_entre_mensajes = 5.0  # Mínimo 5 segundos entre mensajes del mismo número
         
-        # Llamar al router para procesar el mensaje con captura de errores
+        with _throttle_lock:
+            # Verificar si ya hay un mensaje en proceso para este número
+            if _procesando.get(numero, False):
+                print(f"⏸️ Mensaje de {numero} ignorado: ya hay uno en proceso")
+                return None
+            
+            # Verificar si pasó suficiente tiempo desde el último procesamiento
+            ultimo_tiempo = _ultimo_procesamiento.get(numero, 0)
+            tiempo_desde_ultimo = tiempo_actual - ultimo_tiempo
+            
+            if tiempo_desde_ultimo < tiempo_minimo_entre_mensajes:
+                tiempo_restante = tiempo_minimo_entre_mensajes - tiempo_desde_ultimo
+                print(f"⏸️ Mensaje de {numero} ignorado: muy reciente (faltan {tiempo_restante:.1f}s)")
+                return None
+            
+            # Marcar como procesando
+            _procesando[numero] = True
+            _ultimo_procesamiento[numero] = tiempo_actual
+        
         try:
+            # Comentado: No persistir mensajes en BD para testing
+            # if self.id_chat:
+            #     self.chat_service.registrar_mensaje(self.id_chat, texto_strip, es_cliente=True)
+            
+            # Llamar al router para procesar el mensaje con captura de errores
             from Util.message_router import route_message
             respuesta = route_message(numero, texto, self)
             
@@ -301,26 +332,45 @@ class Chat:
             handle_critical_exception(e, texto_strip, numero, "chat.handle_text")
             # El mensaje al cliente ya se envió en handle_critical_exception
             return None
+        finally:
+            # Liberar el lock de procesamiento después de un delay adicional
+            # Esto asegura que no se procesen mensajes muy seguidos incluso después de enviar
+            def liberar_procesamiento():
+                time.sleep(tiempo_minimo_entre_mensajes)
+                with _throttle_lock:
+                    _procesando[numero] = False
+            
+            # Ejecutar en thread separado para no bloquear
+            threading.Thread(target=liberar_procesamiento, daemon=True).start()
 
     def _registrar_y_enviar_mensaje(self, numero, mensaje, aplicar_delay=True):
         """
         Registra y envía un mensaje, con delay opcional para hacer más realista.
+        El delay se ejecuta en un thread separado para no bloquear el webhook.
         
         Args:
             numero: Número del cliente
             mensaje: Mensaje a enviar
             aplicar_delay: Si True, aplica delay de 30-60 segundos antes de enviar
         """
-        if aplicar_delay:
-            # Delay aleatorio entre 30-60 segundos para hacer más realista
-            delay = random.uniform(30, 60)
-            print(f"⏳ Esperando {delay:.1f} segundos antes de enviar respuesta...")
-            time.sleep(delay)
+        def enviar_con_delay():
+            if aplicar_delay:
+                # Delay aleatorio entre 30-60 segundos para hacer más realista
+                delay = random.uniform(30, 60)
+                print(f"⏳ Esperando {delay:.1f} segundos antes de enviar respuesta a {numero}...")
+                time.sleep(delay)
+            
+            # Comentado: No persistir mensajes en BD para testing
+            # if self.id_chat:
+            #     self.chat_service.registrar_mensaje(self.id_chat, mensaje, es_cliente=False)
+            enviar_mensaje_whatsapp(numero, mensaje)
+            print(f"✅ Mensaje enviado a {numero}")
         
-        # Comentado: No persistir mensajes en BD para testing
-        # if self.id_chat:
-        #     self.chat_service.registrar_mensaje(self.id_chat, mensaje, es_cliente=False)
-        return enviar_mensaje_whatsapp(numero, mensaje)
+        # Ejecutar en thread separado para no bloquear el webhook
+        threading.Thread(target=enviar_con_delay, daemon=True).start()
+        
+        # Retornar inmediatamente para no bloquear
+        return None
 
     # ============================================
     # FUNCIONES DEL FLUJO ANTIGUO (COMENTADAS PARA REFERENCIA)

@@ -161,7 +161,7 @@ def handle_critical_rules(
     link_reserva: str
 ) -> Optional[str]:
     """
-    Maneja reglas críticas (demoras, derivación, link explícito).
+    Maneja reglas críticas (demoras, derivación, link explícito, solicitudes de agendamiento).
     
     Args:
         texto: Texto original
@@ -176,6 +176,27 @@ def handle_critical_rules(
     respuesta_demora = handle_demora(texto_strip, link_reserva, chat_instance)
     if respuesta_demora:
         return respuesta_demora
+    
+    # Detectar solicitudes de agendamiento con horarios específicos
+    # Ej: "paso hoy a las 13", "quiero turno hoy a las 15", etc.
+    texto_lower = texto_strip.lower()
+    import re
+    patrones_agendamiento = [
+        r'(paso|paso hoy|quiero|necesito|me gustaría|me gustaria).*(?:hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
+        r'(turno|agendar|reservar).*(?:hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
+        r'(hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
+    ]
+    
+    for patron in patrones_agendamiento:
+        if re.search(patron, texto_lower):
+            # Es una solicitud de agendamiento con horario, responder con link
+            return handle_link_agenda(
+                texto=texto_strip,
+                link_agenda=link_reserva,
+                chat_service=None,
+                id_chat=chat_instance.id_chat,
+                ya_hay_contexto=True
+            )
     
     # Detectar intención unificada
     resultado_intencion = detectar_intencion_unificada(texto_strip)
@@ -198,6 +219,16 @@ def handle_critical_rules(
                 texto=texto_strip,
                 link_agenda=link_reserva,
                 chat_service=None,  # Comentado: No se usa más la base de datos
+                id_chat=chat_instance.id_chat,
+                ya_hay_contexto=True
+            )
+        
+        # Precios - usar handler específico
+        if intencion == "precios":
+            from Util.message_handlers import handle_precios
+            return handle_precios(
+                texto=texto_strip,
+                chat_service=None,
                 id_chat=chat_instance.id_chat,
                 ya_hay_contexto=True
             )
