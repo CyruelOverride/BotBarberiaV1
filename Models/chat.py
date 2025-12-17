@@ -289,27 +289,40 @@ class Chat:
             self.id_chat = f"chat_{numero}"
 
         # Sistema de throttling: evitar procesar mensajes muy seguidos del mismo número
+        # EXCEPCIÓN: Si hay un estado esperando respuesta, NO aplicar throttling (evita bucles)
+        from Util.estado import get_waiting_for
+        waiting_for = get_waiting_for(numero)
+        tiene_estado_esperando = waiting_for is not None
+        
         tiempo_actual = time.time()
         tiempo_minimo_entre_mensajes = 5.0  # Mínimo 5 segundos entre mensajes del mismo número
         
-        with _throttle_lock:
-            # Verificar si ya hay un mensaje en proceso para este número
-            if _procesando.get(numero, False):
-                print(f"⏸️ Mensaje de {numero} ignorado: ya hay uno en proceso")
-                return None
-            
-            # Verificar si pasó suficiente tiempo desde el último procesamiento
-            ultimo_tiempo = _ultimo_procesamiento.get(numero, 0)
-            tiempo_desde_ultimo = tiempo_actual - ultimo_tiempo
-            
-            if tiempo_desde_ultimo < tiempo_minimo_entre_mensajes:
-                tiempo_restante = tiempo_minimo_entre_mensajes - tiempo_desde_ultimo
-                print(f"⏸️ Mensaje de {numero} ignorado: muy reciente (faltan {tiempo_restante:.1f}s)")
-                return None
-            
-            # Marcar como procesando
-            _procesando[numero] = True
-            _ultimo_procesamiento[numero] = tiempo_actual
+        # Solo aplicar throttling si NO hay estado esperando respuesta
+        if not tiene_estado_esperando:
+            with _throttle_lock:
+                # Verificar si ya hay un mensaje en proceso para este número
+                if _procesando.get(numero, False):
+                    print(f"⏸️ Mensaje de {numero} ignorado: ya hay uno en proceso")
+                    return None
+                
+                # Verificar si pasó suficiente tiempo desde el último procesamiento
+                ultimo_tiempo = _ultimo_procesamiento.get(numero, 0)
+                tiempo_desde_ultimo = tiempo_actual - ultimo_tiempo
+                
+                if tiempo_desde_ultimo < tiempo_minimo_entre_mensajes:
+                    tiempo_restante = tiempo_minimo_entre_mensajes - tiempo_desde_ultimo
+                    print(f"⏸️ Mensaje de {numero} ignorado: muy reciente (faltan {tiempo_restante:.1f}s)")
+                    return None
+                
+                # Marcar como procesando
+                _procesando[numero] = True
+                _ultimo_procesamiento[numero] = tiempo_actual
+        else:
+            # Si hay estado esperando, solo marcar como procesando sin throttling
+            with _throttle_lock:
+                _procesando[numero] = True
+                _ultimo_procesamiento[numero] = tiempo_actual
+            print(f"✅ Procesando mensaje con estado esperando ({waiting_for}) - sin throttling")
         
         try:
             # Comentado: No persistir mensajes en BD para testing

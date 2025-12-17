@@ -22,7 +22,9 @@ KEYWORDS_DEMORA = [
     "tengo turno", "mi turno", "turno a las", "turno es",
     "atrasado", "atrasé", "atrase", "me atrasé", "me atrase",
     "llegando tarde", "llegando unos minutos", "llegando 10", "llegando 15",
-    "llegando 20", "llegando 30", "llegando 40"
+    "llegando 20", "llegando 30", "llegando 40",
+    "retraso", "con retraso", "media hora de retraso", "media hora retraso",
+    "con demora", "tengo demora", "voy con demora", "llegando con demora"
 ]
 
 

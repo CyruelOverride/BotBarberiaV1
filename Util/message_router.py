@@ -172,31 +172,49 @@ def handle_critical_rules(
     Returns:
         Respuesta de regla crítica o None si no aplica
     """
+    # PRIORIDAD: Si estamos esperando respuesta de demora, procesar primero
+    # Esto evita que se confunda con agendamiento
+    from Util.estado import get_waiting_for
+    numero_clean = chat_instance.id_chat.replace("chat_", "") if chat_instance.id_chat else ""
+    waiting = get_waiting_for(numero_clean) if numero_clean else None
+    
+    if waiting == "demora_hora_turno":
+        # Estamos esperando la hora del turno, procesar como demora primero
+        respuesta_demora = handle_demora(texto_strip, link_reserva, chat_instance)
+        if respuesta_demora:
+            return respuesta_demora
+    
     # Detectar aviso de demora (política determinística)
+    # Solo si NO estamos en estado de agendamiento
     respuesta_demora = handle_demora(texto_strip, link_reserva, chat_instance)
     if respuesta_demora:
         return respuesta_demora
     
     # Detectar solicitudes de agendamiento con horarios específicos
     # Ej: "paso hoy a las 13", "quiero turno hoy a las 15", etc.
+    # IMPORTANTE: Solo si NO tiene keywords de demora para evitar confusión
+    from Util.politicas_respuestas import detectar_aviso_demora
     texto_lower = texto_strip.lower()
     import re
-    patrones_agendamiento = [
-        r'(paso|paso hoy|quiero|necesito|me gustaría|me gustaria).*(?:hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
-        r'(turno|agendar|reservar).*(?:hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
-        r'(hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
-    ]
     
-    for patron in patrones_agendamiento:
-        if re.search(patron, texto_lower):
-            # Es una solicitud de agendamiento con horario, responder con link
-            return handle_link_agenda(
-                texto=texto_strip,
-                link_agenda=link_reserva,
-                chat_service=None,
-                id_chat=chat_instance.id_chat,
-                ya_hay_contexto=True
-            )
+    # Solo detectar como agendamiento si NO es un aviso de demora
+    if not detectar_aviso_demora(texto_strip):
+        patrones_agendamiento = [
+            r'(paso|paso hoy|quiero|necesito|me gustaría|me gustaria).*(?:hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
+            r'(turno|agendar|reservar).*(?:hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
+            r'(hoy|mañana|el \d+).*(?:a las|las|a la|la)\s*(\d{1,2})',
+        ]
+        
+        for patron in patrones_agendamiento:
+            if re.search(patron, texto_lower):
+                # Es una solicitud de agendamiento con horario, responder con link
+                return handle_link_agenda(
+                    texto=texto_strip,
+                    link_agenda=link_reserva,
+                    chat_service=None,
+                    id_chat=chat_instance.id_chat,
+                    ya_hay_contexto=True
+                )
     
     # Detectar intención unificada
     resultado_intencion = detectar_intencion_unificada(texto_strip)

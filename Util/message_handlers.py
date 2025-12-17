@@ -64,10 +64,10 @@ def handle_demora(texto: str, link_agenda: str = "", chat_instance: Any = None) 
             patron_hora = r'\b(\d{1,2}):?(\d{2})?\b'
             horas_encontradas = re.findall(patron_hora, texto)
             
-            if horas_encontradas:
+            if horas_encontradas and hora_llegada:
                 # Tomar la primera hora encontrada como hora_turno
                 hora_parts = horas_encontradas[0]
-                if len(hora_parts[1]) == 2:  # Tiene minutos
+                if len(hora_parts) == 2 and len(hora_parts[1]) == 2:  # Tiene minutos
                     hora_turno = f"{int(hora_parts[0]):02d}:{hora_parts[1]}"
                 else:  # Solo hora, asumir :00
                     hora_turno = f"{int(hora_parts[0]):02d}:00"
@@ -88,8 +88,12 @@ def handle_demora(texto: str, link_agenda: str = "", chat_instance: Any = None) 
                 except:
                     pass
                 
-                # Limpiar estado de espera
+                # Limpiar estado de espera ANTES de continuar
                 clear_waiting_for(numero)
+            else:
+                # No se pudo extraer hora, limpiar estado y retornar mensaje genérico
+                clear_waiting_for(numero)
+                return "Bro, no pude entender la hora. Si tenés demora, escribime algo como 'llego a las 15:30 y mi turno era a las 14:00'."
     
     # 3. Decidir política (código) → policy_engine
     resultado_politica = aplicar_politica("aviso_demora", datos)
