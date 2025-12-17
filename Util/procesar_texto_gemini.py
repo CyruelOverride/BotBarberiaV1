@@ -4,6 +4,7 @@ import re
 from typing import Optional
 from google import genai
 from google.genai import types
+from google.genai.errors import ClientError, APIError
 from Util.respuestas_barberia import get_respuesta_predefinida, reemplazar_links
 from Util.intents import detectar_intencion
 from Util.informacion_barberia import get_info_por_intencion
@@ -106,11 +107,17 @@ Solo JSON, sin explicaciones."""
         # Validar y comprimir si es necesario
         prompt, input_tokens = validate_and_compress(prompt)
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[prompt],
-            config=get_optimized_config(),
-        )
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[prompt],
+                config=get_optimized_config(),
+            )
+        except (ClientError, APIError) as api_error:
+            print(f"❌ Error de API de Gemini en detectar_consulta_reserva: {api_error}")
+            if numero_cliente:
+                manejar_error(api_error, texto, numero_cliente)
+            return {"es_consulta_reserva": False, "respuesta_acorde": "", "error": True}
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
         output_tokens = count_tokens(response_text) if response_text else 0
@@ -218,12 +225,26 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         prompt, input_tokens = validate_and_compress(prompt)
 
         print(f"🤖 LLAMANDO A GEMINI para generar respuesta (input_tokens: {input_tokens})...")
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[prompt],
-            config=get_optimized_config(),
-        )
-        print(f"✅ Respuesta recibida de Gemini")
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[prompt],
+                config=get_optimized_config(),
+            )
+            print(f"✅ Respuesta recibida de Gemini")
+        except (ClientError, APIError) as api_error:
+            # Error específico de la API de Gemini
+            error_msg = str(api_error)
+            print(f"❌ Error de API de Gemini: {error_msg}")
+            # Notificar al equipo
+            manejar_error(api_error, texto_usuario, None, f"Error de API Gemini: {error_msg}")
+            # Retornar None para que se use el fallback
+            raise  # Re-lanzar para que se capture en el except general y se use fallback
+        except Exception as api_exception:
+            # Otros errores de la API
+            print(f"❌ Error al llamar a Gemini: {api_exception}")
+            manejar_error(api_exception, texto_usuario, None, f"Error al llamar Gemini: {api_exception}")
+            raise  # Re-lanzar para que se capture en el except general
         
         response_text = response.text if hasattr(response, 'text') and response.text else ""
         output_tokens = count_tokens(response_text) if response_text else 0
@@ -254,9 +275,63 @@ def generar_respuesta_barberia(intencion: str = "", texto_usuario: str = "", inf
         
         return response_text
         
+    except (ClientError, APIError) as api_error:
+        # Error específico de la API de Gemini
+        error_msg = str(api_error)
+        print(f"❌ Error de API de Gemini en generar_respuesta_barberia: {error_msg}")
+        manejar_error(api_error, texto_usuario, None, f"Error API Gemini: {error_msg}")
+        
+        # Intentar fallback con flujo automático
+        try:
+            print("🔄 Intentando fallback con flujo automático...")
+            intencion_fallback = detectar_intencion(texto_usuario) if texto_usuario else ""
+            info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_usuario) if intencion_fallback else ""
+            
+            respuesta_fallback = procesar_flujo_automatico(
+                texto_usuario=texto_usuario,
+                intencion=intencion_fallback,
+                info_relevante=info_relevante_fallback
+            )
+            
+            if respuesta_fallback:
+                print("✅ Fallback exitoso")
+                # Aplicar reemplazo de links si se proporcionaron
+                if link_agenda or link_maps:
+                    respuesta_fallback = reemplazar_links(respuesta_fallback, link_agenda, link_maps)
+                return respuesta_fallback
+        except Exception as fallback_error:
+            print(f"⚠️ Error en fallback: {fallback_error}")
+        
+        # Si no hay fallback, retornar None
+        return None
+        
     except Exception as e:
         print(f"⚠️ Error en generar_respuesta_barberia: {e}")
+        import traceback
+        print(f"📋 Traceback completo: {traceback.format_exc()}")
         # Notificar al equipo pero no enviar mensaje técnico al cliente
         manejar_error(e, texto_usuario, None, "Error en generar_respuesta_barberia")
+        
+        # Intentar fallback con flujo automático
+        try:
+            print("🔄 Intentando fallback con flujo automático...")
+            intencion_fallback = detectar_intencion(texto_usuario) if texto_usuario else ""
+            info_relevante_fallback = get_info_por_intencion(intencion_fallback, texto_usuario) if intencion_fallback else ""
+            
+            respuesta_fallback = procesar_flujo_automatico(
+                texto_usuario=texto_usuario,
+                intencion=intencion_fallback,
+                info_relevante=info_relevante_fallback
+            )
+            
+            if respuesta_fallback:
+                print("✅ Fallback exitoso")
+                # Aplicar reemplazo de links si se proporcionaron
+                if link_agenda or link_maps:
+                    respuesta_fallback = reemplazar_links(respuesta_fallback, link_agenda, link_maps)
+                return respuesta_fallback
+        except Exception as fallback_error:
+            print(f"⚠️ Error en fallback: {fallback_error}")
+        
         # Retornar None para que no se envíe nada al cliente
         return None

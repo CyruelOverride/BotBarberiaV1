@@ -7,6 +7,7 @@ import re
 from typing import Optional, Dict, Tuple
 from datetime import datetime, timedelta
 from google import genai
+from google.genai.errors import ClientError, APIError
 import os
 from Util.token_optimizer import count_tokens, get_optimized_config
 
@@ -75,11 +76,16 @@ Responde SOLO con el JSON, sin explicaciones adicionales."""
 
     try:
         # Usar Gemini para extracción
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=[prompt_extraccion],
-            config=get_optimized_config()
-        )
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[prompt_extraccion],
+                config=get_optimized_config()
+            )
+        except (ClientError, APIError) as api_error:
+            print(f"❌ Error de API de Gemini en normalizar_datos_demora: {api_error}")
+            # Retornar None para usar fallback
+            return _extraer_datos_fallback(texto)
         
         respuesta_texto = response.text.strip()
         
