@@ -300,27 +300,28 @@ class Chat:
             return None
 
     def _registrar_y_enviar_mensaje(self, numero, mensaje, aplicar_delay=True):
-            self.marcar_saludo(numero)
-            link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
-            link_maps = "https://maps.app.goo.gl/uaJPmJrxUJr5wZE87"
-            saludo_inicial = generar_respuesta_barberia(
-                intencion="saludo_inicial",
-                texto_usuario=texto_strip,
-                info_relevante="",
-                link_agenda=link_reserva,
-                link_maps=link_maps,
-                ya_hay_contexto=False,
-                chat_service=self.chat_service,
-                id_chat=self.id_chat,
-                respuesta_predefinida=None
-            )
-            if saludo_inicial:
-                return self._registrar_y_enviar_mensaje(numero, saludo_inicial, aplicar_delay=True)
+        """
+        Registra y envía un mensaje, con delay opcional para hacer más realista.
         
-        # Paso 2: Si ya se saludó y está en paso "saludo_inicial", detectar respuesta positiva
-        flujo_paso = self.get_flujo_paso(numero)
-        if flujo_paso == "saludo_inicial" and self.ya_se_saludo(numero):
-            # PRIORIDAD: Si pide el link explícitamente, enviarlo con Gemini pero FORZAR link
+        Args:
+            numero: Número del cliente
+            mensaje: Mensaje a enviar
+            aplicar_delay: Si True, aplica delay de 30-60 segundos antes de enviar
+        """
+        if aplicar_delay:
+            # Delay aleatorio entre 30-60 segundos para hacer más realista
+            delay = random.uniform(30, 60)
+            print(f"⏳ Esperando {delay:.1f} segundos antes de enviar respuesta...")
+            time.sleep(delay)
+        
+        # Comentado: No persistir mensajes en BD para testing
+        # if self.id_chat:
+        #     self.chat_service.registrar_mensaje(self.id_chat, mensaje, es_cliente=False)
+        return enviar_mensaje_whatsapp(numero, mensaje)
+
+    # ============================================
+    # FUNCIONES DEL FLUJO ANTIGUO (COMENTADAS PARA REFERENCIA)
+    # ============================================
             if self.quiere_link(texto_strip):
                 self.set_flujo_paso(numero, "link_enviado")
                 link_reserva = self.link_reserva if self.link_reserva else LINK_RESERVA
@@ -763,32 +764,8 @@ class Chat:
         #         mensaje = f"✅ Hora {hora_encontrada} anotada 🕐\n\n¿Para qué día querés reservar?\n\nEscribí el día y la hora juntos (ejemplo: jueves {hora_encontrada})"
         #         return enviar_mensaje_whatsapp(numero, mensaje)
         # 
-        # # Si no hay waiting_for, iniciar flujo de agendamiento
-        # return self.flujo_inicio(numero, texto_lower)
-
-    def _registrar_y_enviar_mensaje(self, numero, mensaje, aplicar_delay=True):
-        """
-        Registra y envía un mensaje, con delay opcional para hacer más realista.
-        
-        Args:
-            numero: Número del cliente
-            mensaje: Mensaje a enviar
-            aplicar_delay: Si True, aplica delay de 30-60 segundos antes de enviar
-        """
-        if aplicar_delay:
-            # Delay aleatorio entre 30-60 segundos para hacer más realista
-            delay = random.uniform(30, 60)
-            print(f"⏳ Esperando {delay:.1f} segundos antes de enviar respuesta...")
-            time.sleep(delay)
-        
-        # Comentado: No persistir mensajes en BD para testing
-        # if self.id_chat:
-        #     self.chat_service.registrar_mensaje(self.id_chat, mensaje, es_cliente=False)
-        return enviar_mensaje_whatsapp(numero, mensaje)
-
-    # ============================================
-    # FUNCIONES DEL FLUJO ANTIGUO (COMENTADAS PARA REFERENCIA)
-    # ============================================
+    # # Si no hay waiting_for, iniciar flujo de agendamiento
+    # return self.flujo_inicio(numero, texto_lower)
     
     # def extraer_dia_y_hora(self, texto):
     #     """Extrae día de la semana y hora del mensaje si están presentes."""
