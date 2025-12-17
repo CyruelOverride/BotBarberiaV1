@@ -3,9 +3,10 @@ from datetime import datetime
 import re
 import time
 import random
-from Services.ChatService import ChatService
-from Services.ClienteService import ClienteService
-from Util.database import get_db_session
+# Comentado: No se usa más la base de datos
+# from Services.ChatService import ChatService
+# from Services.ClienteService import ClienteService
+# from Util.database import get_db_session
 from whatsapp_api import enviar_mensaje_whatsapp
 from Util.estado import get_estado, reset_estado, get_waiting_for, set_waiting_for, clear_waiting_for, get_citas, add_cita, clear_citas
 from Util.procesar_texto_gemini import detectar_consulta_reserva, generar_respuesta_barberia
@@ -29,11 +30,13 @@ class Chat:
         self.id_chat = id_chat
         self.id_cliente = id_cliente
         
-        if chat_service:
-            self.chat_service = chat_service
-        else:
-            db_session = get_db_session()
-            self.chat_service = ChatService(db_session)
+        # Comentado: No se usa más la base de datos
+        # if chat_service:
+        #     self.chat_service = chat_service
+        # else:
+        #     db_session = get_db_session()
+        #     self.chat_service = ChatService(db_session)
+        self.chat_service = None  # No se usa más
 
         
         self.conversation_data: Dict[str, Any] = {}

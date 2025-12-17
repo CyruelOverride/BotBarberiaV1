@@ -2,12 +2,13 @@ from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse
 import traceback
 from Models.chat import Chat
-from Services.ChatService import ChatService
-from Services.ClienteService import ClienteService
-from Util.database import get_db_session, init_db, engine
-from sqlmodel import text
+# Comentado: No se usa más la base de datos
+# from Services.ChatService import ChatService
+# from Services.ClienteService import ClienteService
+# from Util.database import get_db_session, init_db, engine
+# from sqlmodel import text
 from whatsapp_api import procesar_mensaje_recibido, WHATSAPP_PHONE_NUMBER_ID, enviar_mensaje_whatsapp
-from seed_database import main as seed_main
+# from seed_database import main as seed_main
 
 app = FastAPI()
 VERIFY_TOKEN = "Chacalitas2025"
@@ -18,36 +19,38 @@ ULTIMO_CLIENTE_CONTEXT: dict = {}
 
 @app.on_event("startup")
 async def startup_event():
-    try:
-        with engine.connect() as conn:
-            result = conn.execute(text("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
-                    AND table_name = 'cliente'
-                );
-            """))
-            tabla_existe = result.scalar()
-        
-        if not tabla_existe:
-            print("🔄 Tablas no encontradas. Inicializando base de datos...")
-            init_db()
-            print("✅ Tablas creadas correctamente")
-            
-            print("🌱 Ejecutando seeding de datos iniciales...")
-            try:
-                seed_main()
-            except Exception as e:
-                print(f"⚠️ Error en seeding automático: {e}")
-                print("💡 Puedes ejecutar el seeding manualmente visitando /seed-db")
-        else:
-            print("✅ Base de datos ya inicializada")
-        
-        print("🚀 Sistema de barbería - Bot de WhatsApp inicializado")
-        
-    except Exception as e:
-        print(f"⚠️ Error al verificar/inicializar base de datos: {e}")
-        print("💡 Puedes inicializar manualmente visitando /init-db")
+    # Comentado: No se usa más la base de datos
+    # try:
+    #     with engine.connect() as conn:
+    #         result = conn.execute(text("""
+    #             SELECT EXISTS (
+    #                 SELECT FROM information_schema.tables 
+    #                 WHERE table_schema = 'public' 
+    #                 AND table_name = 'cliente'
+    #             );
+    #         """))
+    #         tabla_existe = result.scalar()
+    #     
+    #     if not tabla_existe:
+    #         print("🔄 Tablas no encontradas. Inicializando base de datos...")
+    #         init_db()
+    #         print("✅ Tablas creadas correctamente")
+    #         
+    #         print("🌱 Ejecutando seeding de datos iniciales...")
+    #         try:
+    #             seed_main()
+    #         except Exception as e:
+    #             print(f"⚠️ Error en seeding automático: {e}")
+    #             print("💡 Puedes ejecutar el seeding manualmente visitando /seed-db")
+    #     else:
+    #         print("✅ Base de datos ya inicializada")
+    #     
+    #     print("🚀 Sistema de barbería - Bot de WhatsApp inicializado")
+    #     
+    # except Exception as e:
+    #     print(f"⚠️ Error al verificar/inicializar base de datos: {e}")
+    #     print("💡 Puedes inicializar manualmente visitando /init-db")
+    print("🚀 Sistema de barbería - Bot de WhatsApp inicializado (sin base de datos)")
 
 
 @app.get("/")
@@ -57,9 +60,10 @@ async def root():
         "phone_number_id": WHATSAPP_PHONE_NUMBER_ID,
         "endpoints": {
             "webhook": "/webhook",
-            "health": "/health",
-            "init_db": "/init-db",
-            "seed_db": "/seed-db"
+            "health": "/health"
+            # Comentado: Endpoints de BD no disponibles
+            # "init_db": "/init-db",
+            # "seed_db": "/seed-db"
         },
     }
 
@@ -69,41 +73,42 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/init-db")
-async def init_database():
-    """Endpoint para inicializar las tablas manualmente (si no se inicializaron automáticamente)."""
-    try:
-        init_db()
-        return {
-            "status": "success",
-            "message": "✅ Tablas creadas correctamente",
-            "tablas": [
-                "cliente", "chat", "mensaje",
-                "categoria", "producto"
-            ]
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"❌ Error al inicializar: {str(e)}"
-        }
-
-
-@app.get("/seed-db")
-async def seed_database():
-    """Endpoint para poblar la base de datos con datos de prueba."""
-    try:
-        seed_main()
-        return {
-            "status": "success",
-            "message": "✅ Seeding completado exitosamente",
-            "nota": "Este endpoint es para datos de prueba. El bot de barbería funciona independientemente."
-        }
-    except Exception as e:
-        return {
-            "status": "error",
-            "message": f"❌ Error en seeding: {str(e)}"
-        }
+# Comentado: Endpoints de BD no disponibles (no se usa más la base de datos)
+# @app.get("/init-db")
+# async def init_database():
+#     """Endpoint para inicializar las tablas manualmente (si no se inicializaron automáticamente)."""
+#     try:
+#         init_db()
+#         return {
+#             "status": "success",
+#             "message": "✅ Tablas creadas correctamente",
+#             "tablas": [
+#                 "cliente", "chat", "mensaje",
+#                 "categoria", "producto"
+#             ]
+#         }
+#     except Exception as e:
+#         return {
+#             "status": "error",
+#             "message": f"❌ Error al inicializar: {str(e)}"
+#         }
+# 
+# 
+# @app.get("/seed-db")
+# async def seed_database():
+#     """Endpoint para poblar la base de datos con datos de prueba."""
+#     try:
+#         seed_main()
+#         return {
+#             "status": "success",
+#             "message": "✅ Seeding completado exitosamente",
+#             "nota": "Este endpoint es para datos de prueba. El bot de barbería funciona independientemente."
+#         }
+#     except Exception as e:
+#         return {
+#             "status": "error",
+#             "message": f"❌ Error en seeding: {str(e)}"
+#         }
 
 
 @app.get("/webhook")
@@ -119,7 +124,8 @@ async def verify(request: Request):
 
 @app.post("/webhook")
 async def receive(request: Request):
-    db_session = None
+    # Comentado: No se usa más la base de datos
+    # db_session = None
     try:
         data = await request.json()
         resultado = procesar_mensaje_recibido(data)
@@ -177,26 +183,27 @@ async def receive(request: Request):
                 # Si no se pudo procesar, continuar con flujo normal
             # Si no es #Responder, continuar con flujo normal
 
-        # Crear sesión de DB
-        db_session = get_db_session()
+        # Comentado: No se usa más la base de datos
+        # # Crear sesión de DB
+        # db_session = get_db_session()
+        # 
+        # try:
+        #     chat_service = ChatService(db_session)
+        #     
+        #     id_cliente = ClienteService.obtener_o_crear_cliente("", "", numero)
+        #     
+        #     chat_bd = chat_service.obtener_o_crear_chat(id_cliente, numero)
+        #     id_chat = chat_bd.id_chat
         
-        try:
-            chat_service = ChatService(db_session)
-            
-            id_cliente = ClienteService.obtener_o_crear_cliente("", "", numero)
-            
-            chat_bd = chat_service.obtener_o_crear_chat(id_cliente, numero)
-            id_chat = chat_bd.id_chat
-            
-            # Comentado: No persistir mensajes en BD para testing
-            # if tipo in ("text", "interactive"):
-            #     chat_service.registrar_mensaje(id_chat, mensaje, es_cliente=True)
-            
-            chat = Chat(
-                id_chat=id_chat,
-                id_cliente=id_cliente,
-                chat_service=chat_service
-            )
+        # Usar valores simulados sin base de datos
+        id_chat = f"chat_{numero}"
+        id_cliente = 1  # Valor simulado
+        
+        chat = Chat(
+            id_chat=id_chat,
+            id_cliente=id_cliente,
+            chat_service=None  # No se usa más
+        )
 
             # Registrar último cliente que interactuó (para testing con #Responder)
             # Solo si no es el responsable
@@ -211,18 +218,19 @@ async def receive(request: Request):
                 ULTIMO_CLIENTE_CONTEXT[responsable_test]["ultimo_cliente"] = numero
                 ULTIMO_CLIENTE_CONTEXT[responsable_test]["ultimo_mensaje"] = mensaje
             
-            if tipo in ("text", "interactive"):
-                chat.handle_text(numero, mensaje)
-            else:
-                chat.handle_text(numero, "Tipo de mensaje no soportado aún.")
+        if tipo in ("text", "interactive"):
+            chat.handle_text(numero, mensaje)
+        else:
+            chat.handle_text(numero, "Tipo de mensaje no soportado aún.")
 
-            return PlainTextResponse("EVENT_RECEIVED", status_code=200)
+        return PlainTextResponse("EVENT_RECEIVED", status_code=200)
         
-        finally:
-            # ✅ IMPORTANTE: Cerrar la sesión siempre
-            if db_session:
-                db_session.close()
-                print("🔒 Sesión de DB cerrada")
+        # Comentado: No se usa más la base de datos
+        # finally:
+        #     # ✅ IMPORTANTE: Cerrar la sesión siempre
+        #     if db_session:
+        #         db_session.close()
+        #         print("🔒 Sesión de DB cerrada")
 
     except Exception as e:
         # Captura global de errores críticos
@@ -243,10 +251,11 @@ async def receive(request: Request):
         # Manejar error crítico
         handle_critical_exception(e, mensaje_error, numero_error, "webhook_server")
         
-        # Cerrar sesión en caso de error también
-        if db_session:
-            db_session.close()
-            print("🔒 Sesión de DB cerrada (después de error)")
+        # Comentado: No se usa más la base de datos
+        # # Cerrar sesión en caso de error también
+        # if db_session:
+        #     db_session.close()
+        #     print("🔒 Sesión de DB cerrada (después de error)")
         
         # Siempre responder 200 OK al webhook para evitar reintentos
         return PlainTextResponse("EVENT_RECEIVED", status_code=200)

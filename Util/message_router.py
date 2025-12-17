@@ -78,7 +78,7 @@ def handle_sequential_flow(
             link_agenda=link_reserva,
             link_maps=link_maps,
             ya_hay_contexto=False,
-            chat_service=chat_instance.chat_service,
+            chat_service=None,  # Comentado: No se usa más la base de datos
             id_chat=chat_instance.id_chat,
             respuesta_predefinida=None
         )
@@ -94,7 +94,7 @@ def handle_sequential_flow(
             return handle_link_agenda(
                 texto=texto_strip,
                 link_agenda=link_reserva,
-                chat_service=chat_instance.chat_service,
+                chat_service=None,  # Comentado: No se usa más la base de datos
                 id_chat=chat_instance.id_chat,
                 ya_hay_contexto=True
             )
@@ -107,7 +107,7 @@ def handle_sequential_flow(
                 link_agenda=link_reserva,
                 link_maps="",
                 ya_hay_contexto=True,
-                chat_service=chat_instance.chat_service,
+                chat_service=None,  # Comentado: No se usa más la base de datos
                 id_chat=chat_instance.id_chat,
                 respuesta_predefinida=None
             )
@@ -119,7 +119,7 @@ def handle_sequential_flow(
             return handle_link_agenda(
                 texto=texto_strip,
                 link_agenda=link_reserva,
-                chat_service=chat_instance.chat_service,
+                chat_service=None,  # Comentado: No se usa más la base de datos
                 id_chat=chat_instance.id_chat,
                 ya_hay_contexto=True
             )
@@ -128,7 +128,7 @@ def handle_sequential_flow(
             return handle_link_agenda(
                 texto=texto_strip,
                 link_agenda=link_reserva,
-                chat_service=chat_instance.chat_service,
+                chat_service=None,  # Comentado: No se usa más la base de datos
                 id_chat=chat_instance.id_chat,
                 ya_hay_contexto=True
             )
@@ -146,7 +146,7 @@ def handle_sequential_flow(
             link_agenda="",
             link_maps="",
             ya_hay_contexto=True,
-            chat_service=chat_instance.chat_service,
+            chat_service=None,  # Comentado: No se usa más la base de datos
             id_chat=chat_instance.id_chat,
             respuesta_predefinida=None
         )
@@ -197,7 +197,7 @@ def handle_critical_rules(
             return handle_link_agenda(
                 texto=texto_strip,
                 link_agenda=link_reserva,
-                chat_service=chat_instance.chat_service,
+                chat_service=None,  # Comentado: No se usa más la base de datos
                 id_chat=chat_instance.id_chat,
                 ya_hay_contexto=True
             )
@@ -275,17 +275,18 @@ def handle_gemini_generation(
     numero = chat_instance.id_chat.replace("chat_", "") if chat_instance.id_chat else ""
     ya_hay_contexto = chat_instance.ya_se_saludo(numero) or bool(intencion)
     
+    # Comentado: No se usa más la base de datos
     # Obtener historial cuando hay contexto
     historial_comprimido = ""
     ultimos_mensajes = None
-    if ya_hay_contexto and chat_instance.chat_service and chat_instance.id_chat:
-        try:
-            ultimos_mensajes = chat_instance.chat_service.obtener_ultimos_mensajes(chat_instance.id_chat, limite=4)
-            todos_mensajes = chat_instance.chat_service.obtener_todos_mensajes(chat_instance.id_chat)
-            if todos_mensajes and len(todos_mensajes) > 10:
-                historial_comprimido = compress_history(todos_mensajes)
-        except Exception as e:
-            print(f"⚠️ Error obteniendo historial: {e}")
+    # if ya_hay_contexto and chat_instance.chat_service and chat_instance.id_chat:
+    #     try:
+    #         ultimos_mensajes = chat_instance.chat_service.obtener_ultimos_mensajes(chat_instance.id_chat, limite=4)
+    #         todos_mensajes = chat_instance.chat_service.obtener_todos_mensajes(chat_instance.id_chat)
+    #         if todos_mensajes and len(todos_mensajes) > 10:
+    #             historial_comprimido = compress_history(todos_mensajes)
+    #     except Exception as e:
+    #         print(f"⚠️ Error obteniendo historial: {e}")
     
     # Estimar tokens
     prompt_estimado = build_modular_prompt(
@@ -310,7 +311,7 @@ def handle_gemini_generation(
                 link_agenda=link_reserva,
                 link_maps=link_maps,
                 ya_hay_contexto=ya_hay_contexto,
-                chat_service=chat_instance.chat_service,
+                chat_service=None,  # Comentado: No se usa más la base de datos
                 id_chat=chat_instance.id_chat,
                 respuesta_predefinida=None
             )
@@ -336,7 +337,7 @@ def handle_gemini_generation(
                     link_agenda=link_reserva,
                     link_maps=link_maps,
                     ya_hay_contexto=ya_hay_contexto,
-                    chat_service=chat_instance.chat_service,
+                    chat_service=None,  # Comentado: No se usa más la base de datos
                     id_chat=chat_instance.id_chat,
                     respuesta_predefinida=None
                 )
