@@ -25,6 +25,7 @@ def registrar_mensaje(numero_cliente, mensaje):
 def manejar_error(error, mensaje, numero_cliente, contexto_adicional: str = ""):
     """
     Maneja errores enviando notificaciones diferenciadas a empleado, desarrollador y número de notificación.
+    Para errores críticos (como cuota excedida), también notifica al responsable.
     
     Args:
         error: Excepción capturada
@@ -35,6 +36,48 @@ def manejar_error(error, mensaje, numero_cliente, contexto_adicional: str = ""):
     error_type = type(error).__name__
     error_msg = str(error)
     traceback_completo = traceback.format_exc()
+    
+    # Detectar si es un error crítico que requiere notificación al responsable
+    # Errores de cuota excedida, rate limit, etc.
+    es_error_critico = False
+    if ("429" in error_msg or "Too Many Requests" in error_msg or 
+        "quota" in error_msg.lower() or "limit" in error_msg.lower() or
+        "resource_exhausted" in error_msg.lower() or "rate limit" in error_msg.lower() or
+        "quota exceeded" in error_msg.lower() or "cuota excedida" in error_msg.lower()):
+        es_error_critico = True
+    
+    # Si es error crítico, notificar al responsable
+    if es_error_critico:
+        try:
+            from Util.error_flow import notify_responsable, NUM_RESPONSABLE
+            from whatsapp_api import enviar_mensaje_whatsapp
+            
+            if numero_cliente:
+                # Si tenemos número de cliente, usar el flujo completo
+                from Util.error_flow import handle_critical_exception
+                contexto_completo = contexto_adicional if contexto_adicional else "error_handler.manejar_error"
+                handle_critical_exception(error, mensaje, numero_cliente, contexto_completo)
+                print(f"✅ Error crítico notificado al responsable a través de error_flow")
+            else:
+                # Si no tenemos número de cliente, notificar igualmente con mensaje genérico
+                mensaje_cuota = (
+                    f"🚨 *CUOTA EXCEDIDA - Error crítico*\n\n"
+                    f"El bot ha alcanzado el límite de cuota/requests.\n\n"
+                    f"Error: {error_type}\n"
+                    f"Detalle: {error_msg}\n\n"
+                    f"⚠️ El bot puede no responder correctamente hasta que se resuelva."
+                )
+                if mensaje:
+                    mensaje_cuota += f"\n\nÚltimo mensaje procesado: {mensaje}"
+                
+                resultado = enviar_mensaje_whatsapp(NUM_RESPONSABLE, mensaje_cuota)
+                if resultado.get("success"):
+                    print(f"✅ Error de cuota notificado al responsable ({NUM_RESPONSABLE})")
+                else:
+                    print(f"⚠️ Error al notificar cuota al responsable: {resultado.get('error')}")
+        except Exception as e:
+            print(f"⚠️ Error al notificar al responsable: {e}")
+            # Continuar con el flujo normal si falla
     
     # Extraer información del contexto del traceback
     contexto_general = contexto_adicional
