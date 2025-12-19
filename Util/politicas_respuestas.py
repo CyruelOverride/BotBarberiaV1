@@ -27,6 +27,40 @@ KEYWORDS_DEMORA = [
     "con demora", "tengo demora", "voy con demora", "llegando con demora"
 ]
 
+# Keywords para detectar consultas de precios
+KEYWORDS_PRECIOS = [
+    "precio", "precios", "costo", "costos", "valor", "valores",
+    "cuanto sale", "cuánto sale", "cuanto cuesta", "cuánto cuesta",
+    "cuanto vale", "cuánto vale", "tarifa", "tarifas",
+    "precio del", "precio de", "costo del", "costo de",
+    "valor del", "valor de", "cuanto sale el", "cuánto sale el",
+    "cuanto sale la", "cuánto sale la", "precio tiene", "costo tiene"
+]
+
+# Keywords para detectar consultas sobre ir con amigo
+KEYWORDS_AMIGO = [
+    "con un amigo", "con amigo", "vamos con un amigo", "puedo traer",
+    "viene conmigo", "viene con", "dos personas", "vamos dos",
+    "puedo venir con", "vamos juntos", "con alguien", "traer a alguien"
+]
+
+# Keywords para detectar consultas de más información
+KEYWORDS_MAS_INFO = [
+    "mas informacion", "más información", "quiero mas info", "quiero más info",
+    "info", "informacion", "información", "contame mas", "contame más",
+    "quiero saber mas", "quiero saber más", "necesito mas info", "necesito más info",
+    "dame mas info", "dame más info", "contame sobre", "cuentame sobre"
+]
+
+# Keywords para detectar cancelaciones/no poder ir
+KEYWORDS_CANCELACION = [
+    "no voy a poder", "no puedo ir", "no voy", "no podre", "no podré",
+    "no voy a poder ir", "se me murio", "se me murió", "fallecio", "falleció",
+    "emergencia", "imprevisto", "problema familiar", "no puedo asistir",
+    "no voy a asistir", "tengo que cancelar", "tengo que faltar",
+    "no puedo venir", "no voy a venir", "no podre venir", "no podré venir"
+]
+
 
 def detectar_aviso_demora(texto: str) -> bool:
     """
@@ -49,6 +83,293 @@ def detectar_aviso_demora(texto: str) -> bool:
             return True
     
     return False
+
+
+def detectar_consulta_precios(texto: str) -> bool:
+    """
+    Detecta si el mensaje es una consulta de precios usando keywords.
+    
+    Args:
+        texto: Mensaje del usuario
+        
+    Returns:
+        True si es una consulta de precios, False en caso contrario
+    """
+    if not texto:
+        return False
+    
+    texto_lower = texto.lower().strip()
+    
+    # Buscar keywords de precios
+    for keyword in KEYWORDS_PRECIOS:
+        if keyword in texto_lower:
+            return True
+    
+    return False
+
+
+def obtener_respuesta_precios_directa() -> str:
+    """
+    Retorna directamente el mensaje predeterminado de precios sin pasar por Gemini.
+    
+    Returns:
+        Mensaje con la lista de precios
+    """
+    try:
+        from Util.respuestas_barberia import get_response
+        respuesta = get_response("precios", "cuanto_sale")
+        if respuesta:
+            return respuesta
+    except Exception as e:
+        print(f"⚠️ Error obteniendo respuesta de precios: {e}")
+    
+    # Fallback: retornar mensaje hardcodeado si falla la lectura del JSON
+    return "Bro, el valor depende de lo que vos quieras hacerte.\nTe paso la lista:\n• Corte + asesoramiento → $500\n• Corte + asesoramiento + barba → $600\n• Barba perfilada → $250\n• Barba afeitada → $200\n• Cejas en base a visagismo → $50"
+
+
+def detectar_consulta_amigo(texto: str) -> bool:
+    """
+    Detecta si el mensaje es una consulta sobre ir con un amigo usando keywords.
+    
+    Args:
+        texto: Mensaje del usuario
+        
+    Returns:
+        True si es una consulta sobre ir con amigo, False en caso contrario
+    """
+    if not texto:
+        return False
+    
+    texto_lower = texto.lower().strip()
+    
+    # Buscar keywords de amigo
+    for keyword in KEYWORDS_AMIGO:
+        if keyword in texto_lower:
+            return True
+    
+    return False
+
+
+def obtener_respuesta_amigo(link_agenda: str) -> str:
+    """
+    Retorna la respuesta para consultas sobre ir con amigo.
+    
+    Args:
+        link_agenda: Link de la agenda
+        
+    Returns:
+        Mensaje con la respuesta y el link
+    """
+    return f"Si bro pero agendense ambos en el link\n\n{link_agenda}"
+
+
+def detectar_consulta_mas_info(texto: str) -> bool:
+    """
+    Detecta si el mensaje es una consulta de más información usando keywords.
+    
+    Args:
+        texto: Mensaje del usuario
+        
+    Returns:
+        True si es una consulta de más información, False en caso contrario
+    """
+    if not texto:
+        return False
+    
+    texto_lower = texto.lower().strip()
+    
+    # Buscar keywords de más información
+    for keyword in KEYWORDS_MAS_INFO:
+        if keyword in texto_lower:
+            return True
+    
+    return False
+
+
+def obtener_respuesta_mas_info() -> str:
+    """
+    Retorna un mensaje completo con información del visagismo, barbería y precios.
+    
+    Returns:
+        Mensaje completo con toda la información
+    """
+    try:
+        from Util.informacion_barberia import get_info_servicio
+        from Util.precios_barberia import obtener_lista_completa_precios
+        
+        info_servicio = get_info_servicio()
+        lista_precios = obtener_lista_completa_precios()
+        
+        # Construir mensaje formateado
+        mensaje = "Bro, acá tenés toda la info:\n\n"
+        mensaje += "📋 SOBRE EL SERVICIO:\n"
+        mensaje += "El servicio se basa en cortes personalizados según el rostro del cliente (visagismo). "
+        mensaje += "No se hacen cortes genéricos, sino que se analiza la estructura craneal, tipo de rostro, "
+        mensaje += "tipo de cabello, volumen, densidad y dirección de crecimiento.\n\n"
+        mensaje += "A partir de eso se decide qué corte va mejor con tu fisonomía y estilo personal. "
+        mensaje += "El objetivo es resaltar tus rasgos.\n\n"
+        mensaje += "Trabajamos solo con turnos para que no tengas que esperar: llegás y te atendemos. "
+        mensaje += "Mientras esperás o terminás tu corte, podés tomarte un café tranquilo, charlar, "
+        mensaje += "estar en un ambiente piola, sin apuros. Queremos que te sientas como en casa.\n\n"
+        mensaje += "💰 PRECIOS:\n"
+        mensaje += lista_precios
+        
+        return mensaje
+    except Exception as e:
+        print(f"⚠️ Error obteniendo respuesta de más información: {e}")
+        # Fallback básico
+        return "Bro, trabajamos con cortes personalizados según tu rostro (visagismo). Trabajamos solo con turnos. Si querés más info específica, preguntame lo que necesites."
+
+
+def detectar_cancelacion_empatica(texto: str) -> bool:
+    """
+    Detecta si el mensaje es una cancelación o aviso de no poder ir usando keywords.
+    
+    Args:
+        texto: Mensaje del usuario
+        
+    Returns:
+        True si es una cancelación/no poder ir, False en caso contrario
+    """
+    if not texto:
+        return False
+    
+    texto_lower = texto.lower().strip()
+    
+    # Buscar keywords de cancelación
+    for keyword in KEYWORDS_CANCELACION:
+        if keyword in texto_lower:
+            return True
+    
+    return False
+
+
+def generar_respuesta_cancelacion_empatica(texto: str, link_agenda: str) -> str:
+    """
+    Genera una respuesta empática para cancelaciones usando Gemini.
+    Mantiene el tono de "bro", "hermano" pero es empático con la situación.
+    
+    Args:
+        texto: Mensaje del usuario
+        link_agenda: Link de la agenda
+        
+    Returns:
+        Mensaje empático generado por Gemini
+    """
+    try:
+        # Construir prompt especial para respuesta empática
+        prompt = f"""El cliente escribió: "{texto}"
+
+Analizá el contexto del mensaje. Puede ser:
+- Muerte de familiar (abuela, abuelo, etc.)
+- Emergencia médica
+- Imprevisto personal
+- Problema familiar
+- Otra situación que le impide asistir
+
+Generá una respuesta empática pero manteniendo el tono casual de la barbería:
+- Usá "bro", "hermano" o "amigo" según corresponda
+- Mostrá comprensión y empatía por la situación
+- NO uses frases muy formales, mantené el tono casual pero respetuoso
+- Incluí instrucciones claras: que cancele su turno actual y se agende uno nuevo cuando pueda
+- Incluí el link de agenda al final: {link_agenda}
+- Si menciona muerte de familiar, sé especialmente empático pero sin exagerar
+
+Responde SOLO con el mensaje para el cliente, sin explicaciones adicionales."""
+
+        # Usar Gemini para generar respuesta
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+            config=get_optimized_config()
+        )
+        
+        respuesta_texto = response.text.strip()
+        
+        # Asegurar que el link esté incluido
+        if link_agenda and link_agenda not in respuesta_texto:
+            respuesta_texto += f"\n\nAcá tenés el link de la agenda: {link_agenda}"
+        
+        return respuesta_texto
+        
+    except (ClientError, APIError) as api_error:
+        print(f"❌ Error de API de Gemini en generar_respuesta_cancelacion_empatica: {api_error}")
+        # Fallback: respuesta genérica pero empática
+        return f"Bro, no pasa nada, entendemos la situación. Por favor cancelá tu reserva actual y agendate uno nuevo cuando puedas. Acá tenés el link de la agenda: {link_agenda}"
+    except Exception as e:
+        print(f"⚠️ Error generando respuesta empática: {e}")
+        # Fallback: respuesta genérica pero empática
+        return f"Bro, no pasa nada, entendemos la situación. Por favor cancelá tu reserva actual y agendate uno nuevo cuando puedas. Acá tenés el link de la agenda: {link_agenda}"
+
+
+def detectar_intencion_general_con_gemini(texto: str) -> Optional[str]:
+    """
+    Usa Gemini para detectar la intención general cuando no se detectó por keywords.
+    
+    Args:
+        texto: Mensaje del usuario
+        
+    Returns:
+        Intención detectada (ej: "turnos", "precios", "barba", "cortes", "ubicacion", etc.) o None
+    """
+    if not texto or len(texto.strip()) <= 10:
+        return None
+    
+    try:
+        # Lista de intenciones básicas posibles
+        intenciones_posibles = [
+            "turnos", "precios", "barba", "cortes", "ubicacion", 
+            "productos_lc", "diferencial", "visagismo", "servicios"
+        ]
+        
+        prompt = f"""Analizá el siguiente mensaje del cliente y detectá su intención principal.
+
+Mensaje: "{texto}"
+
+Intenciones posibles:
+- "turnos": Si pregunta sobre agendar, reservar, disponibilidad, horarios
+- "precios": Si pregunta sobre costos, precios, valores, tarifas
+- "barba": Si pregunta específicamente sobre servicios de barba
+- "cortes": Si pregunta sobre tipos de corte, estilos, cortes disponibles
+- "ubicacion": Si pregunta dónde están, dirección, ubicación, cómo llegar
+- "productos_lc": Si pregunta sobre productos, cera, styling
+- "diferencial": Si pregunta qué los diferencia, qué tienen de especial
+- "visagismo": Si pregunta sobre visagismo, tipos de rostro, qué corte le queda
+- "servicios": Si pregunta qué servicios ofrecen, qué hacen
+
+Responde SOLO con el nombre de la intención (ej: "turnos") o "otro" si no coincide con ninguna.
+NO incluyas explicaciones, solo el nombre de la intención."""
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+            config=get_optimized_config()
+        )
+        
+        respuesta_texto = response.text.strip().lower()
+        
+        # Limpiar respuesta (puede venir con markdown o explicaciones)
+        respuesta_texto = respuesta_texto.replace("```", "").strip()
+        
+        # Verificar que sea una intención válida
+        if respuesta_texto in intenciones_posibles:
+            return respuesta_texto
+        elif respuesta_texto == "otro":
+            return None
+        
+        # Si la respuesta contiene alguna intención, extraerla
+        for intencion in intenciones_posibles:
+            if intencion in respuesta_texto:
+                return intencion
+        
+        return None
+        
+    except (ClientError, APIError) as api_error:
+        print(f"❌ Error de API de Gemini en detectar_intencion_general_con_gemini: {api_error}")
+        return None
+    except Exception as e:
+        print(f"⚠️ Error detectando intención con Gemini: {e}")
+        return None
 
 
 def normalizar_datos_demora(texto: str) -> Optional[Dict[str, any]]:

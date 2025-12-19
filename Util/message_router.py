@@ -190,6 +190,26 @@ def handle_critical_rules(
     if respuesta_demora:
         return respuesta_demora
     
+    # Detectar consultas de precios directamente (sin pasar por Gemini)
+    from Util.politicas_respuestas import detectar_consulta_precios, obtener_respuesta_precios_directa
+    if detectar_consulta_precios(texto_strip):
+        return obtener_respuesta_precios_directa()
+    
+    # Detectar consultas sobre ir con amigo
+    from Util.politicas_respuestas import detectar_consulta_amigo, obtener_respuesta_amigo
+    if detectar_consulta_amigo(texto_strip):
+        return obtener_respuesta_amigo(link_reserva)
+    
+    # Detectar consultas de más información
+    from Util.politicas_respuestas import detectar_consulta_mas_info, obtener_respuesta_mas_info
+    if detectar_consulta_mas_info(texto_strip):
+        return obtener_respuesta_mas_info()
+    
+    # Detectar cancelaciones/no poder ir - respuesta empática con Gemini
+    from Util.politicas_respuestas import detectar_cancelacion_empatica, generar_respuesta_cancelacion_empatica
+    if detectar_cancelacion_empatica(texto_strip):
+        return generar_respuesta_cancelacion_empatica(texto_strip, link_reserva)
+    
     # Detectar solicitudes de agendamiento con horarios específicos
     # Ej: "paso hoy a las 13", "quiero turno hoy a las 15", etc.
     # IMPORTANTE: Solo si NO tiene keywords de demora para evitar confusión
@@ -315,6 +335,13 @@ def handle_gemini_generation(
     # Detectar intención unificada
     resultado_intencion = detectar_intencion_unificada(texto_strip)
     intencion = resultado_intencion[0] if resultado_intencion else None
+    
+    # Si no se detectó intención por keywords, intentar con Gemini
+    if not intencion and len(texto_strip.strip()) > 10:
+        from Util.politicas_respuestas import detectar_intencion_general_con_gemini
+        intencion = detectar_intencion_general_con_gemini(texto_strip)
+        if intencion:
+            print(f"✅ Intención detectada con Gemini: '{intencion}'")
     
     # Obtener info relevante
     info_relevante = ""
