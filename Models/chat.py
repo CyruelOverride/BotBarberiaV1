@@ -333,9 +333,9 @@ class Chat:
             from Util.message_router import route_message
             respuesta = route_message(numero, texto, self)
             
-            # Si hay respuesta, registrar y enviar con delay
+            # Si hay respuesta, registrar y enviar sin delay
             if respuesta:
-                return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=True)
+                return self._registrar_y_enviar_mensaje(numero, respuesta, aplicar_delay=False)
             
             # Si no hay respuesta, no enviar nada (ya se notificó al equipo si hubo error)
             return None
@@ -346,10 +346,9 @@ class Chat:
             # El mensaje al cliente ya se envió en handle_critical_exception
             return None
         finally:
-            # Liberar el lock de procesamiento después de un delay adicional
-            # Esto asegura que no se procesen mensajes muy seguidos incluso después de enviar
+            # Liberar el lock de procesamiento inmediatamente (sin delay)
             def liberar_procesamiento():
-                time.sleep(tiempo_minimo_entre_mensajes)
+                # Delay desactivado - liberar inmediatamente
                 with _throttle_lock:
                     _procesando[numero] = False
             
